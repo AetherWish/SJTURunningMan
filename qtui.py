@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QSpacerItem, QFileDialog
 )
 from PySide6.QtCore import QThread, Signal, QDateTime, QDate, Qt, QUrl, QEvent
-from PySide6.QtGui import QTextCursor, QFont, QColor, QTextCharFormat, QPalette, QBrush, QIcon, QDesktopServices
+from PySide6.QtGui import QTextCursor, QFont, QColor, QTextCharFormat, QPalette, QBrush, QIcon, QDesktopServices, QIntValidator
 
 from src.main import run_sports_upload
 import src.login as login
@@ -416,12 +416,21 @@ class SportsUploaderUI(QWidget):
 
         distance_input_layout = QHBoxLayout()
         self.run_distance_combo = QComboBox()
+        self.run_distance_combo.addItem("自定义 (米)")
         # Add distances from 1 to 5 km
         for distance in range(1, 6):  # 1 to 5 km
             self.run_distance_combo.addItem(f"{distance} km")
 
-        self.run_distance_combo.setCurrentIndex(4)  # 默认选择5 km (index 4)
+        self.run_distance_combo.setCurrentIndex(5)  # 默认选择5 km (index 5)
         distance_input_layout.addWidget(self.run_distance_combo)
+
+        self.custom_distance_input = QLineEdit()
+        self.custom_distance_input.setPlaceholderText("输入米数 (例如: 3200)")
+        self.custom_distance_input.setValidator(QIntValidator(1, 100000, self))
+        self.custom_distance_input.setVisible(False)
+        distance_input_layout.addWidget(self.custom_distance_input)
+
+        self.run_distance_combo.currentTextChanged.connect(self.on_run_distance_changed)
         distance_layout.addLayout(distance_input_layout)
 
         run_settings_layout.addLayout(distance_layout)
@@ -483,6 +492,13 @@ class SportsUploaderUI(QWidget):
             self.custom_time_input.setVisible(True)
         else:
             self.custom_time_input.setVisible(False)
+
+    def on_run_distance_changed(self, text):
+        """处理跑步距离选择变化事件"""
+        if text == "自定义 (米)":
+            self.custom_distance_input.setVisible(True)
+        else:
+            self.custom_distance_input.setVisible(False)
 
     def resizeEvent(self, event):
         """
@@ -569,9 +585,24 @@ class SportsUploaderUI(QWidget):
                 run_minute = int(time_parts[1])  # Extract minute from "HH:00" format (should be 00)
                 run_second = 0  # Default second for predefined times
 
-            # 获取运行距离（公里）
+            # 获取运行距离（公里，支持自定义米数）
             run_distance_text = self.run_distance_combo.currentText()
-            run_distance_km = int(run_distance_text.split()[0])  # Extract km from "X km" format
+            if run_distance_text == "自定义 (米)":
+                custom_distance_text = self.custom_distance_input.text().strip()
+                if not custom_distance_text:
+                    raise ValueError("请输入自定义跑步距离（米）。")
+
+                try:
+                    run_distance_m = int(custom_distance_text)
+                except ValueError:
+                    raise ValueError("自定义跑步距离必须是正整数（单位：米）。")
+
+                if run_distance_m <= 0:
+                    raise ValueError("自定义跑步距离必须大于 0 米。")
+
+                run_distance_km = round(run_distance_m / 1000, 3)
+            else:
+                run_distance_km = float(run_distance_text.split()[0])  # Extract km from "X km" format
 
             current_config = {
                 "USER_ID": username,
@@ -675,8 +706,8 @@ class SportsUploaderUI(QWidget):
             if route_distance > target_distance_m:
                 from PySide6.QtWidgets import QMessageBox
                 reply = QMessageBox.question(self, "路线距离提醒", 
-                                           f"当前路线长度为 {route_distance/1000:.2f}km，"
-                                           f"超过了您选择的 {current_config_to_send.get('RUN_DISTANCE_KM', 5)}km。\n\n"
+                                           f"当前路线长度为 {route_distance/1000:.3f}km，"
+                                           f"超过了您选择的 {current_config_to_send.get('RUN_DISTANCE_KM', 5):.3f}km。\n\n"
                                            f"您希望：\n"
                                            f"  - 选择\"是\"：自动削减路线至目标距离\n"
                                            f"  - 选择\"否\"：按照完整路线进行跑步",
@@ -691,8 +722,8 @@ class SportsUploaderUI(QWidget):
                     self.log_output_text("用户选择按照完整路线进行跑步", "info")
                     # Update the target distance to be the actual route distance
                     # We need to adjust the RUN_DISTANCE_KM to match the route distance
-                    current_config_to_send['RUN_DISTANCE_KM'] = round(route_distance / 1000, 2)
-                    self.log_output_text(f"已更新跑步距离至 {current_config_to_send['RUN_DISTANCE_KM']}km", "info")
+                    current_config_to_send['RUN_DISTANCE_KM'] = round(route_distance / 1000, 3)
+                    self.log_output_text(f"已更新跑步距离至 {current_config_to_send['RUN_DISTANCE_KM']:.3f}km", "info")
         except Exception as e:
             self.log_output_text(f"检查路线距离时出现错误: {e}", "error")
             # Continue anyway, don't block the upload for this check
@@ -713,8 +744,8 @@ class SportsUploaderUI(QWidget):
         reply = QMessageBox.question(
             self, 
             "路线距离提醒", 
-            f"当前路线长度为 {detailed_distance/1000:.2f}km，"
-            f"超过了您选择的 {target_distance/1000:.2f}km。\n\n"
+            f"当前路线长度为 {detailed_distance/1000:.3f}km，"
+            f"超过了您选择的 {target_distance/1000:.3f}km。\n\n"
             f"您希望：\n"
             f"  - 选择\"是\"：自动削减路线至目标距离\n"
             f"  - 选择\"否\"：按照完整路线继续跑步\n"
