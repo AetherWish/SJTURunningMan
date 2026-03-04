@@ -166,14 +166,14 @@ python cliui.py -u <username> -p <password> -d 5.0
    ```
 
 2. **填写用户信息**:
-   - 在"用户名"输入框中输入您的Jaccount学号
-   - 在"密码"输入框中输入您的Jaccount密码
+   - 在"用户名"输入框中输入您的JAccount学号
+   - 在"密码"输入框中输入您的JAccount密码
 
 3. **设置上传参数**:
    - 从"上传天数"下拉框选择天数或选择"自定义"并输入天数
    - 从"跑步时间"下拉框选择跑步时间（6:00-23:00），或选择"自定义时间"输入精确到秒的时间
    - 在"开始日期"输入框输入开始日期（默认为昨天），系统将从该日期向前生成历史记录
-   - 从"跑步距离"下拉框选择跑步距离（1-5km）
+   - 从"跑步距离"下拉框选择跑步距离（1-5km），或选择“自定义”输入米数
 
 4. **开始上传**:
    - 点击"一键跑步"按钮开始上传
@@ -284,6 +284,7 @@ python cliui.py --customize-route
 
 - **原项目作者**: [@Labyrinth0419](https://github.com/Labyrinth0419) - 创建了优秀的原项目
 - **原增强版作者**: [@accelerator-s](https://github.com/accelerator-s) - 添加了新功能和改进
+- **新增强版作者**: [@JackyTJie](https://github.com/JackyTJie) - 添加自定义功能
 
 ## 免责声明
 
@@ -291,4 +292,4 @@ python cliui.py --customize-route
 
 ---
 
-**Last Update: Wednesday, November 19, 2025**
+> Last Update: Wednesday, March 4th, 2026
