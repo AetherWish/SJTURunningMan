@@ -3,6 +3,7 @@ package com.sjtu.runner.data
 import com.sjtu.runner.utils.GpsUtil
 import kotlin.math.*
 import java.util.UUID
+import kotlin.random.Random
 
 object DataGenerator {
 
@@ -31,7 +32,7 @@ object DataGenerator {
         log("单圈距离: ${String.format("%.2f", singleLoopDistance)}m，目标: ${targetDistanceM}m")
 
         // 配速随机化：在4-6分钟/公里范围内随机生成（4-6分配）
-        val randomPaceMinPerKm = (4.0..6.0).random()
+        val randomPaceMinPerKm = Random.nextDouble(4.0, 6.0)
         val totalDurationSec = (randomPaceMinPerKm * 60 * targetDistanceM / 1000.0).roundToInt()
         val targetSpeedMps = targetDistanceM.toDouble() / totalDurationSec
         log("使用随机配速: ${String.format("%.1f", randomPaceMinPerKm)} 分钟/公里 (${(randomPaceMinPerKm * 60).toInt()} 秒/公里)")
@@ -199,15 +200,15 @@ object DataGenerator {
         var idx = 0
         while (idx < allPoints.size) {
             val take = min(
-                max(5, (allPoints.size - idx) / (2 + (Math.random() * 3).toInt())),
+                max(5, (allPoints.size - idx) / (2 + (Random.nextDouble() * 3).toInt())),
                 allPoints.size - idx
             )
             val segmentPoints = allPoints.subList(idx, idx + take)
             idx += take
 
             val status = when {
-                Math.random() < 0.8 -> "normal"
-                Math.random() < 0.9 -> "invalid"
+                Random.nextDouble() < 0.8 -> "normal"
+                Random.nextDouble() < 0.9 -> "invalid"
                 else -> "stop"
             }
             val tstate = if (status == "invalid") "2" else "0"

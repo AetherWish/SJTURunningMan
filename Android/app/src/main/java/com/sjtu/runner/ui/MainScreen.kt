@@ -1,5 +1,10 @@
 package com.sjtu.runner.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,18 +25,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sjtu.runner.route.RouteInfo
 import com.sjtu.runner.viewmodel.MainViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreen(viewModel: MainViewModel) {
+fun MainScreen(
+    viewModel: MainViewModel,
+    onNavigateToRouteDesign: () -> Unit,
+    onReloginRequested: () -> Unit
+) {
     val log by viewModel.log.collectAsStateWithLifecycle()
     val running by viewModel.running.collectAsStateWithLifecycle()
-    
+    val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val selectedRoute by viewModel.selectedRoute.collectAsStateWithLifecycle()
+
     // 重新登录状态
     var isReloginRequired by remember { mutableStateOf(false) }
 
@@ -94,7 +106,7 @@ fun MainScreen(viewModel: MainViewModel) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
                     // 1. 跑步天数 (下拉选择 + 自定义)
@@ -181,7 +193,7 @@ fun MainScreen(viewModel: MainViewModel) {
                                 .width(160.dp)
                                 .clickable { if (!running) showDatePicker = true },
                             readOnly = true,
-                            enabled = false, // 禁用以便让整个区域可点击
+                            enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
                                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
                                 disabledBorderColor = MaterialTheme.colorScheme.outline,
@@ -195,7 +207,18 @@ fun MainScreen(viewModel: MainViewModel) {
                         )
                     }
 
-                    // 4. 目标距离：锁定 1-5km
+                    // 4. 跑步路线 (下拉选择 + 新增/删除)
+                    SettingItem(icon = Icons.Default.Map, label = "跑步路线") {
+                        RouteSelector(
+                            routes = routes,
+                            selectedRoute = selectedRoute,
+                            onSelectRoute = { viewModel.selectRoute(it) },
+                            onDeleteRoute = { viewModel.deleteRoute(it) },
+                            onCreateNewRoute = onNavigateToRouteDesign
+                        )
+                    }
+
+                    // 5. 目标距离：锁定 1-5km
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DirectionsRun, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
@@ -245,9 +268,9 @@ fun MainScreen(viewModel: MainViewModel) {
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         Button(
-                            onClick = { 
+                            onClick = {
                                 isReloginRequired = false
-                                // 这里会触发MainActivity中的重新登录逻辑
+                                onReloginRequested()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
@@ -410,6 +433,156 @@ fun DropdownSelection(items: List<String>, selected: String, onSelect: (String) 
                     }
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun RouteSelector(
+    routes: List<RouteInfo>,
+    selectedRoute: RouteInfo?,
+    onSelectRoute: (RouteInfo) -> Unit,
+    onDeleteRoute: (RouteInfo) -> Unit,
+    onCreateNewRoute: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedRoute?.name ?: "请选择路线",
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .width(180.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            ),
+            shape = RoundedCornerShape(8.dp),
+            textStyle = MaterialTheme.typography.bodyMedium
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .widthIn(max = 280.dp)
+        ) {
+            routes.forEach { route ->
+                var showDeleteConfirm by remember { mutableStateOf(false) }
+
+                val modifier = if (!route.isDefault) {
+                    Modifier.combinedClickable(
+                        onClick = {
+                            onSelectRoute(route)
+                            expanded = false
+                        },
+                        onLongClick = {
+                            showDeleteConfirm = true
+                        }
+                    )
+                } else {
+                    Modifier.clickable {
+                        onSelectRoute(route)
+                        expanded = false
+                    }
+                }
+
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text(
+                                    route.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedRoute?.id == route.id) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Text(
+                                    "${route.pointCount} 个点",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                            if (route.isDefault) {
+                                AssistChip(
+                                    onClick = {},
+                                    label = { Text("默认", fontSize = 10.sp) },
+                                    modifier = Modifier.height(24.dp),
+                                    colors = AssistChipDefaults.assistChipColors()
+                                )
+                            }
+                        }
+                    },
+                    onClick = {},
+                    modifier = modifier,
+                    trailingIcon = if (!route.isDefault) {
+                        {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else null
+                )
+
+                if (showDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteConfirm = false },
+                        title = { Text("删除路线") },
+                        text = { Text("确定要删除路线「${route.name}」吗？") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    onDeleteRoute(route)
+                                    showDeleteConfirm = false
+                                    expanded = false
+                                }
+                            ) {
+                                Text("删除", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteConfirm = false }) {
+                                Text("取消")
+                            }
+                        }
+                    )
+                }
+            }
+
+            Divider()
+
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("设定新路线", color = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                onClick = {
+                    expanded = false
+                    onCreateNewRoute()
+                }
+            )
         }
     }
 }

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>路线设计器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html, #map-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        #toolbar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .title::before {
+            content: "🗺️";
+            font-size: 20px;
+        }
+        .input-group {
+            margin-bottom: 12px;
+        }
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .route-name-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.2s;
+        }
+        .route-name-input:focus {
+            outline: none;
+            border-color: #0984e3;
+            box-shadow: 0 0 0 3px rgba(9,132,227,0.1);
+        }
+        .stats {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #2d3436;
+            display: flex;
+            justify-content: space-between;
+        }
+        .stats .count {
+            font-weight: 700;
+            color: #0984e3;
+            font-size: 18px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-clear {
+            background: #fff3f0;
+            color: #d63031;
+            border: 1px solid #ffe0db;
+        }
+        .btn-clear:hover {
+            background: #ffe0db;
+        }
+        .btn-save {
+            background: #0984e3;
+            color: white;
+        }
+        .btn-save:hover {
+            background: #0767b3;
+        }
+        .btn-save:disabled {
+            background: #b2bec3;
+            cursor: not-allowed;
+        }
+        .tip {
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            margin-top: 10px;
+        }
+        @media (max-width: 600px) {
+            #toolbar {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 12px;
+            }
+            button {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <div class="title">设计跑步路线</div>
+        <div class="input-group">
+            <label>路线名称</label>
+            <input type="text" id="routeName" class="route-name-input" placeholder="例如：夜跑路线、环校一周" autocomplete="off">
+        </div>
+        <div class="stats">
+            <span>📍 采集点数</span>
+            <span class="count" id="pointCount">0</span>
+        </div>
+        <div class="button-group">
+            <button class="btn-clear" onclick="clearAllPoints()">🗑️ 清除所有点</button>
+            <button class="btn-save" id="saveBtn" onclick="saveRoute()" disabled>💾 保存路线</button>
+        </div>
+        <div class="tip">💡 提示：点击地图添加点位，点击标记可删除单个点</div>
+    </div>
+    <div id="map-container"></div>
+
+    <script type="text/javascript" src="https://api.map.baidu.com/api?v=3.0&ak=MYUXpppuOOvq99cP2AmDvplAW76VV8vr"></script>
+    <script>
+        // 初始化地图
+        var map = new BMap.Map("map-container");
+        var centerPoint = new BMap.Point(121.442938, 31.031599);
+        map.centerAndZoom(centerPoint, 15);
+        map.enableScrollWheelZoom(true);
+        map.addControl(new BMap.NavigationControl());
+        map.addControl(new BMap.ScaleControl());
+
+        // 存储坐标点
+        var points = [];
+        var markers = [];
+
+        // 更新UI
+        function updateUI() {
+            var count = points.length;
+            document.getElementById('pointCount').innerText = count;
+            var saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = (count < 2);
+        }
+
+        // 刷新坐标列表（可选显示小标签）
+        function refreshMarkersInfo() {
+            // 已经通过overlay管理，不需要额外操作
+        }
+
+        // 添加点
+        function addPoint(lng, lat) {
+            var point = { lng: lng, lat: lat };
+            points.push(point);
+            
+            var bmPoint = new BMap.Point(lng, lat);
+            var marker = new BMap.Marker(bmPoint);
+            map.addOverlay(marker);
+            markers.push(marker);
+            
+            // 点击标记删除
+            marker.addEventListener("click", function(e) {
+                var index = markers.indexOf(marker);
+                if (index > -1) {
+                    markers.splice(index, 1);
+                    points.splice(index, 1);
+                    map.removeOverlay(marker);
+                    updateUI();
+                }
+                e.stopPropagation();
+            });
+            
+            updateUI();
+        }
+
+        // 地图点击事件
+        map.addEventListener("click", function(e) {
+            var lng = e.point.lng;
+            var lat = e.point.lat;
+            addPoint(lng, lat);
+        });
+
+        // 清空所有点
+        function clearAllPoints() {
+            markers.forEach(function(marker) {
+                map.removeOverlay(marker);
+            });
+            markers = [];
+            points = [];
+            updateUI();
+        }
+
+        // 保存路线 - 调用Android接口
+        function saveRoute() {
+            var routeName = document.getElementById('routeName').value.trim();
+            if (routeName === "") {
+                alert("请填写路线名称");
+                return;
+            }
+            if (points.length < 2) {
+                alert("请至少采集2个坐标点");
+                return;
+            }
+            
+            // 准备坐标数据
+            var coordArray = points.map(function(p) {
+                return { lng: p.lng, lat: p.lat };
+            });
+            
+            // 调用Android原生接口
+            if (window.AndroidInterface && window.AndroidInterface.onSaveRoute) {
+                window.AndroidInterface.onSaveRoute(routeName, JSON.stringify(coordArray));
+            } else {
+                alert("Android接口未就绪，请稍后重试");
+            }
+        }
+
+        // 地图加载完成
+        map.addEventListener("tilesloaded", function() {
+            console.log("地图加载完成");
+        });
+
+        // 暴露给外部调用的方法（可选）
+        window.setPointsFromData = function(pointsJson) {
+            try {
+                var data = JSON.parse(pointsJson);
+                clearAllPoints();
+                data.forEach(function(p) {
+                    addPoint(p.lng, p.lat);
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        };
+    </script>
+</body>
+</html>

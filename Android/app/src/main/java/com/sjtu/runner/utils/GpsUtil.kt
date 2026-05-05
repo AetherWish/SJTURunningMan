@@ -1,6 +1,7 @@
 package com.sjtu.runner.utils
 
 import android.content.Context
+import java.io.File
 import kotlin.math.*
 
 object GpsUtil {
@@ -21,6 +22,21 @@ object GpsUtil {
         context.resources.openRawResource(
             context.resources.getIdentifier("route_coordinates", "raw", context.packageName)
         ).bufferedReader().use { reader ->
+            reader.lineSequence().forEach { line ->
+                val parts = line.trim().split(",")
+                if (parts.size == 2) {
+                    list.add(parts[0].toDouble() to parts[1].toDouble())
+                }
+            }
+        }
+        return list
+    }
+
+    // 新增：从文件读取坐标
+    fun readCoordinatesFromFile(file: File): List<Pair<Double, Double>> {
+        val list = mutableListOf<Pair<Double, Double>>()
+        if (!file.exists()) return list
+        file.bufferedReader().use { reader ->
             reader.lineSequence().forEach { line ->
                 val parts = line.trim().split(",")
                 if (parts.size == 2) {

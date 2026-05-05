@@ -28,5 +28,9 @@
             android:exported="false"
             android:theme="@style/Theme.SjtuRunner" />
 
+        <activity
+            android:name=".route.RouteDesignActivity"
+            android:configChanges="orientation|screenSize" />
+
     </application>
 </manifest>

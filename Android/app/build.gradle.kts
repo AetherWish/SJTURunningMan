@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.compose)
+    id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
 android {
@@ -19,10 +21,6 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-    }
-
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -36,6 +34,7 @@ android {
 dependencies {
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
+    implementation("com.google.code.gson:gson:2.10.1")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
