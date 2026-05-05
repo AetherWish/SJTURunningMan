@@ -447,6 +447,7 @@ fun RouteSelector(
     onCreateNewRoute: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var routeToDelete by remember { mutableStateOf<RouteInfo?>(null) }   // 待删除的路线
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -476,25 +477,6 @@ fun RouteSelector(
                 .widthIn(max = 280.dp)
         ) {
             routes.forEach { route ->
-                var showDeleteConfirm by remember { mutableStateOf(false) }
-
-                val modifier = if (!route.isDefault) {
-                    Modifier.combinedClickable(
-                        onClick = {
-                            onSelectRoute(route)
-                            expanded = false
-                        },
-                        onLongClick = {
-                            showDeleteConfirm = true
-                        }
-                    )
-                } else {
-                    Modifier.clickable {
-                        onSelectRoute(route)
-                        expanded = false
-                    }
-                }
-
                 DropdownMenuItem(
                     text = {
                         Row(
@@ -524,43 +506,30 @@ fun RouteSelector(
                             }
                         }
                     },
-                    onClick = {},
-                    modifier = modifier,
+                    onClick = {
+                        onSelectRoute(route)
+                        expanded = false
+                    },
                     trailingIcon = if (!route.isDefault) {
                         {
-                            Icon(
-                                Icons.Default.DeleteOutline,
-                                contentDescription = "删除",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            IconButton(
+                                onClick = {
+                                    // 记录待删除路线，关闭下拉菜单
+                                    routeToDelete = route
+                                    expanded = false
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.DeleteOutline,
+                                    contentDescription = "删除",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     } else null
                 )
-
-                if (showDeleteConfirm) {
-                    AlertDialog(
-                        onDismissRequest = { showDeleteConfirm = false },
-                        title = { Text("删除路线") },
-                        text = { Text("确定要删除路线「${route.name}」吗？") },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    onDeleteRoute(route)
-                                    showDeleteConfirm = false
-                                    expanded = false
-                                }
-                            ) {
-                                Text("删除", color = MaterialTheme.colorScheme.error)
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDeleteConfirm = false }) {
-                                Text("取消")
-                            }
-                        }
-                    )
-                }
             }
 
             Divider()
@@ -584,5 +553,30 @@ fun RouteSelector(
                 }
             )
         }
+    }
+
+    // 删除确认对话框（与下拉菜单平级，独立于 expanded 状态）
+    if (routeToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { routeToDelete = null },
+            title = { Text("删除路线") },
+            text = { Text("确定要删除路线「${routeToDelete?.name}」吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteRoute(routeToDelete!!)
+                        routeToDelete = null
+                        expanded = false   // 确保下拉菜单关闭
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { routeToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }

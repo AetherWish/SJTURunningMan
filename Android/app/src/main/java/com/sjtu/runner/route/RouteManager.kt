@@ -13,7 +13,7 @@ class RouteManager(private val context: Context) {
         private const val PREF_NAME = "route_prefs"
         private const val KEY_ROUTES = "custom_routes"
         private const val DEFAULT_ROUTE_ID = "default"
-        private const val DEFAULT_ROUTE_NAME = "思源湖默认路线"
+        private const val DEFAULT_ROUTE_NAME = "思源湖路线"
         private const val ROUTES_DIR = "routes"
     }
 
