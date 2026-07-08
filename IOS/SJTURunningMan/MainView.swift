@@ -77,6 +77,7 @@ struct MainView: View {
     @State private var showDatePicker = false
 
     @State private var distanceKm = 5.0
+    @State private var showRouteDesign = false
 
     var body: some View {
         NavigationView {
@@ -87,7 +88,28 @@ struct MainView: View {
                         Text("任务参数").font(.headline)
                         Divider().overlay(.white.opacity(0.3))
 
-                        // 天数
+                        // 路线选择
+                        SettingRow(icon: "point.topleft.down.curvedto.point.bottomright.up", label: "跑步路线") {
+                            HStack(spacing: 4) {
+                                DropdownButton(
+                                    items: viewModel.routes.map { route in
+                                        "\(route.name) (\(route.pointCount)点)"
+                                    } + ["设计新路线"],
+                                    selected: viewModel.selectedRoute.map { "\($0.name) (\($0.pointCount)点)" } ?? "选择路线"
+                                ) { item in
+                                    if item == "设计新路线" {
+                                        showRouteDesign = true
+                                    } else {
+                                        // Extract route name from display string
+                                        if let route = viewModel.routes.first(where: {
+                                            "\($0.name) (\($0.pointCount)点)" == item
+                                        }) {
+                                            viewModel.selectRoute(route)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         SettingRow(icon: "calendar", label: "跑步天数") {
                             if !showCustomDays {
                                 DropdownButton(items: ["1 天", "3 天", "5 天", "7 天", "10 天", "15 天", "30 天", "自定义"],
@@ -273,7 +295,13 @@ struct MainView: View {
             .sheet(isPresented: $showDatePicker) {
                 DatePickerSheet(date: $startDate, isPresented: $showDatePicker)
             }
+            .sheet(isPresented: $showRouteDesign, onDismiss: {
+                viewModel.refreshRoutes()
+            }) {
+                RouteDesignView()
+            }
             .onAppear {
+                viewModel.loadRoutes()
                 checkLoginStatus()
             }
         }
@@ -320,7 +348,7 @@ struct SettingRow<Content: View>: View {
 
 struct DropdownButton: View {
     let items: [String]
-    @State var selected: String
+    let selected: String
     let onSelect: (String) -> Void
 
     var body: some View {

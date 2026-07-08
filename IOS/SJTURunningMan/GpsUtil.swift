@@ -27,8 +27,12 @@ struct GpsUtil {
             print("❌ route_coordinates not found in bundle")
             return []
         }
+        return readCoordinates(from: url)
+    }
+
+    static func readCoordinates(from fileURL: URL) -> [Coord] {
         do {
-            let text = try String(contentsOf: url)
+            let text = try String(contentsOf: fileURL)
             return text.split(separator: "\n").compactMap { line -> Coord? in
                 let parts = line.split(separator: ",")
                 guard parts.count == 2,
@@ -37,7 +41,7 @@ struct GpsUtil {
                 return Coord(lon: lon, lat: lat)
             }
         } catch {
-            print("❌ Cannot read route_coordinates: \(error)")
+            print("❌ Cannot read coordinates from \(fileURL): \(error)")
             return []
         }
     }

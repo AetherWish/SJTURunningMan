@@ -15,8 +15,11 @@ class MainViewModel: ObservableObject {
     @Published var logText = "就绪。点击\"开始任务\"启动。"
     @Published var isRunning = false
     @Published var needRelogin = false
-    
+    @Published var routes: [RouteInfo] = []
+    @Published var selectedRoute: RouteInfo? = nil
+
     private let api = ApiService()
+    private let routeManager = RouteManager.shared
     private var uploadTask: Task<Void, Never>?
     
     func startUpload(days: Int, distanceKm: Int, hour: Int, minute: Int, dateString: String?) {
@@ -34,8 +37,8 @@ class MainViewModel: ObservableObject {
             }
             await log("UID 获取成功: \(uid)")
             
-            let coordinates = GpsUtil.readCoordinates()
-            await log("路线点数量: \(coordinates.count)")
+            let coordinates = getSelectedRouteCoordinates()
+            await log("路线: \(selectedRoute?.name ?? "未知")，点数量: \(coordinates.count)")
             let targetDistanceM = distanceKm * 1000
             
             let dateFormatter = DateFormatter()
@@ -107,7 +110,43 @@ class MainViewModel: ObservableObject {
     func reloginCompleted() {
         needRelogin = false
     }
-    
+
+    // MARK: - Route Management
+
+    func loadRoutes() {
+        routes = routeManager.getAllRoutes()
+        if selectedRoute == nil || !routes.contains(where: { $0.id == selectedRoute?.id }) {
+            selectedRoute = routes.first
+        }
+    }
+
+    func selectRoute(_ route: RouteInfo) {
+        selectedRoute = route
+    }
+
+    func deleteRoute(_ route: RouteInfo) {
+        guard !route.isDefault else { return }
+        routeManager.deleteRoute(id: route.id)
+        refreshRoutes()
+        if selectedRoute?.id == route.id {
+            selectedRoute = routes.first // fallback to default
+        }
+    }
+
+    func refreshRoutes() {
+        routes = routeManager.getAllRoutes()
+        if selectedRoute == nil || !routes.contains(where: { $0.id == selectedRoute?.id }) {
+            selectedRoute = routes.first
+        }
+    }
+
+    func getSelectedRouteCoordinates() -> [Coord] {
+        guard let route = selectedRoute else {
+            return GpsUtil.readCoordinates()
+        }
+        return routeManager.getRouteCoordinates(for: route)
+    }
+
     private func log(_ message: String) async {
         let timeStr = DateFormatter.timeOnly.string(from: Date())
         logText += "\n\(timeStr) \(message)"
