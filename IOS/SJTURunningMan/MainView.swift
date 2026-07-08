@@ -78,6 +78,7 @@ struct MainView: View {
 
     @State private var distanceKm = 5.0
     @State private var showRouteDesign = false
+    @State private var showDeleteRouteAlert = false
 
     var body: some View {
         NavigationView {
@@ -100,12 +101,22 @@ struct MainView: View {
                                     if item == "设计新路线" {
                                         showRouteDesign = true
                                     } else {
-                                        // Extract route name from display string
                                         if let route = viewModel.routes.first(where: {
                                             "\($0.name) (\($0.pointCount)点)" == item
                                         }) {
                                             viewModel.selectRoute(route)
                                         }
+                                    }
+                                }
+
+                                // Delete button for custom routes
+                                if let route = viewModel.selectedRoute, !route.isDefault {
+                                    Button(role: .destructive) {
+                                        showDeleteRouteAlert = true
+                                    } label: {
+                                        Image(systemName: "trash.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.title3)
                                     }
                                 }
                             }
@@ -299,6 +310,16 @@ struct MainView: View {
                 viewModel.refreshRoutes()
             }) {
                 RouteDesignView()
+            }
+            .alert("删除路线", isPresented: $showDeleteRouteAlert) {
+                Button("取消", role: .cancel) { }
+                Button("删除", role: .destructive) {
+                    if let route = viewModel.selectedRoute {
+                        viewModel.deleteRoute(route)
+                    }
+                }
+            } message: {
+                Text("确定要删除路线「\(viewModel.selectedRoute?.name ?? "")」吗？此操作不可撤销。")
             }
             .onAppear {
                 viewModel.loadRoutes()
