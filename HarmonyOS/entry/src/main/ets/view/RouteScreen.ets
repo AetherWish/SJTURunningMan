@@ -13,7 +13,23 @@ export struct RouteScreen {
   /** 主导航栈（由 Index 传入），用于跳转路线设计页 */
   navStack: NavPathStack = new NavPathStack();
 
-  /** 设定新路线入口卡片选项（等价原 RunScreen 下拉"＋ 设定新路线"项） */
+  /** 路线管理入口卡片选项：与“设定新路线”并列，进入路线管理页 */
+  private manageCardOptions(): HdsCardOptions {
+    const options: HdsCardOptions = {
+      prefixItem: hdsPrefixIcon($r('sys.symbol.gearshape')),
+      textItem: {
+        primaryText: { text: '路线管理' },
+        secondaryText: { text: '默认路线、排序与删除' }
+      },
+      suffixItem: new SuffixArrow(),
+      onClick: (): void => {
+        this.navStack.pushPathByName('RouteManage', null);
+      }
+    };
+    return options;
+  }
+
+  /** 设定新路线入口卡片选项（等价原 RunScreen 下拉“＋ 设定新路线”项） */
   private newRouteCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.map')),
@@ -36,6 +52,11 @@ export struct RouteScreen {
       List({ space: 8 }) {
         ListItem() {
           HdsListItemCard(this.newRouteCardOptions())
+            .width('100%')
+        }
+
+        ListItem() {
+          HdsListItemCard(this.manageCardOptions())
             .width('100%')
         }
       }

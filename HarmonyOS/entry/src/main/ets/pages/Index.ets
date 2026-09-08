@@ -10,6 +10,7 @@ import { RouteScreen } from '../view/RouteScreen';
 import { AccountScreen } from '../view/AccountScreen';
 import { LoginPage } from '../pages/Login';
 import { RouteDesignPage } from '../pages/RouteDesign';
+import { RouteManagePage } from '../pages/RouteManage';
 import { AboutPage } from '../pages/About';
 import { MainViewModel } from '../viewmodel/MainViewModel';
 
@@ -143,6 +144,8 @@ struct Index {
       LoginPage({ navStack: this.pathStack })
     } else if (name === 'RouteDesign') {
       RouteDesignPage({ navStack: this.pathStack })
+    } else if (name === 'RouteManage') {
+      RouteManagePage()
     } else if (name === 'About') {
       AboutPage()
     }

@@ -255,7 +255,7 @@ export struct RunScreen {
     const labels: string[] = [];
     const routes = this.viewModel.routes;
     for (let i = 0; i < routes.length; i++) {
-      labels.push(`${routes[i].name}（${routes[i].pointCount} 个点${routes[i].isDefault ? ' · 默认' : ''}）`);
+      labels.push(`${routes[i].name}（${routes[i].pointCount} 个点${routes[i].isDefault ? ' · 启动默认' : ''}）`);
     }
     // "设定新路线"入口已迁移至一级页"路线"页签（RouteScreen），下拉仅保留路线选择
     return labels;
