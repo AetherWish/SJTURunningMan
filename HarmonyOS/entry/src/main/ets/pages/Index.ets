@@ -33,6 +33,13 @@ const PREF_DISCLAIMER_ACCEPTED: string = 'disclaimer_accepted';
  *    不支持 IMMERSIVE 时降级为 SMOOTH 档位，避免低端设备卡顿发热；
  * 2. HdsNavigation 标题栏与 HdsTabs 悬浮页签均使用 ADAPTIVE 自适应档位；
  * 3. 应用级开关已在 module.json5 配置 ohos.arkui.UIMaterial.state = enable。
+ *
+ * 窗口沉浸式（官方《窗口沉浸式》"沉浸式布局 + 布局避让"方案）：
+ * EntryAbility 已 setWindowLayoutFullScreen(true) 并把避让区域（状态栏/导航条/挖孔区，
+ * 单位 px）写入 AppStorage；本页面按 px2vp 换算后以 padding 内缩导航内容——
+ * 沉浸式布局下布局不再自动避让系统栏，不避让会使贴顶大标题/二级页返回键顶入
+ * 状态栏而无法点击。外层 Stack 背景色铺满整个窗口（含系统栏区域），
+ * 系统栏与页面内容间无可见色差。
  */
 @Entry
 @Component
@@ -41,6 +48,15 @@ struct Index {
   private viewModel: MainViewModel = MainViewModel.getInstance();
   /** 主导航栈：登录 / 路线设计 / 关于 二级页均挂载于此 */
   private pathStack: NavPathStack = new NavPathStack();
+
+  /** 状态栏避让高度（px，EntryAbility.initSafeArea 写入，avoidAreaChange 动态刷新） */
+  @StorageProp('topAvoidHeight') topAvoidHeight: number = 0;
+  /** 底部导航条（手势指示条）避让高度（px） */
+  @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0;
+  /** 挖孔区左避让宽度（px） */
+  @StorageProp('leftAvoidWidth') leftAvoidWidth: number = 0;
+  /** 挖孔区右避让宽度（px） */
+  @StorageProp('rightAvoidWidth') rightAvoidWidth: number = 0;
 
   @State selectedTab: number = 0;
   @State contentReady: boolean = false;
@@ -134,64 +150,76 @@ struct Index {
   build() {
     Stack() {
       if (this.contentReady) {
-        HdsNavigation(this.pathStack) {
-          HdsTabs({ controller: this.hdsTabsController }) {
-            TabContent() {
-              RunScreen({ navStack: this.pathStack })
-            }
-            .tabBar(new BottomTabBarStyle(
-              { normal: new SymbolGlyphModifier($r('sys.symbol.figure_running')) }, '开润'))
+        // 官方《窗口沉浸式》"布局避让"：沉浸式布局下布局不自动避让系统栏，
+        // 按避让区域（px → vp）整体内缩，保证贴顶大标题/二级页返回键不顶入状态栏、
+        // 悬浮页签不被底部导航条（手势指示条）遮挡（+0vp 即可，页签自带 24vp 边距）。
+        Column() {
+          HdsNavigation(this.pathStack) {
+            HdsTabs({ controller: this.hdsTabsController }) {
+              TabContent() {
+                RunScreen({ navStack: this.pathStack })
+              }
+              .tabBar(new BottomTabBarStyle(
+                { normal: new SymbolGlyphModifier($r('sys.symbol.figure_running')) }, '开润'))
 
-            TabContent() {
-              AccountScreen({ navStack: this.pathStack })
+              TabContent() {
+                AccountScreen({ navStack: this.pathStack })
+              }
+              .tabBar(new BottomTabBarStyle(
+                { normal: new SymbolGlyphModifier($r('sys.symbol.person_crop_circle_fill_1')) }, '账号'))
             }
-            .tabBar(new BottomTabBarStyle(
-              { normal: new SymbolGlyphModifier($r('sys.symbol.person_crop_circle_fill_1')) }, '账号'))
+            .barOverlap(true)
+            .vertical(false)
+            .barPosition(BarPosition.End)
+            .onChange((index: number) => {
+              this.selectedTab = index;
+              // 切到“账号”页时刷新登录状态（等价 Android Compose 切换 tab 重组时的 cookie 检查）
+              if (index === 1) {
+                this.viewModel.refreshLoginState();
+              }
+            })
+            .barFloatingStyle({
+              barBottomMargin: 24,
+              systemMaterialEffect: {
+                materialType: this.materialType,
+                materialLevel: this.materialLevel
+              }
+            })
           }
-          .barOverlap(true)
-          .vertical(false)
-          .barPosition(BarPosition.End)
-          .onChange((index: number) => {
-            this.selectedTab = index;
-            // 切到“账号”页时刷新登录状态（等价 Android Compose 切换 tab 重组时的 cookie 检查）
-            if (index === 1) {
-              this.viewModel.refreshLoginState();
+          .mode(NavigationMode.Stack)
+          .navDestination(this.PageMap)
+          .titleBar({
+            content: {
+              title: {
+                // 一级页大标题随页签切换（开润/账号）
+                mainTitle: this.selectedTab === 0 ? '开润' : '账号'
+              }
+            },
+            style: {
+              systemMaterialEffect: {
+                materialType: this.materialType,
+                materialLevel: this.materialLevel
+              }
             }
           })
-          .barFloatingStyle({
-            barBottomMargin: 24,
-            systemMaterialEffect: {
-              materialType: this.materialType,
-              materialLevel: this.materialLevel
-            }
-          })
+          // 一级页（NavBar）使用贴左大标题（HarmonyOS 系统应用一级页样式）；
+          // 二级页 HdsNavDestination 的返回键不受影响
+          .titleMode(HdsNavigationTitleMode.FULL)
+          .hideBackButton(true)
         }
-        .mode(NavigationMode.Stack)
-        .navDestination(this.PageMap)
-        .titleBar({
-          content: {
-            title: {
-              // 一级页大标题随页签切换（开润/账号）
-              mainTitle: this.selectedTab === 0 ? '开润' : '账号'
-            }
-          },
-          style: {
-            systemMaterialEffect: {
-              materialType: this.materialType,
-              materialLevel: this.materialLevel
-            }
-          }
+        .width('100%')
+        .height('100%')
+        .padding({
+          top: this.getUIContext().px2vp(this.topAvoidHeight),
+          bottom: this.getUIContext().px2vp(this.bottomAvoidHeight),
+          left: this.getUIContext().px2vp(this.leftAvoidWidth),
+          right: this.getUIContext().px2vp(this.rightAvoidWidth)
         })
-        // 一级页（NavBar）使用贴左大标题（HarmonyOS 系统应用一级页样式）；
-        // 二级页 HdsNavDestination 的返回键不受影响
-        .titleMode(HdsNavigationTitleMode.FULL)
-        .hideBackButton(true)
-        // 安全区：保持系统默认避让（此前 ignoreLayoutSafeArea 使内容顶入状态栏，
-        // 导致二级页返回键贴顶无法点击），HdsTabs 悬浮页签自行处理底部导航条
       }
     }
     .width('100%')
     .height('100%')
+    // 背景铺满整个窗口（沉浸式布局下含状态栏/导航条区域），系统栏与页面无可见色差
     .backgroundColor($r('app.color.page_background'))
   }
 }
