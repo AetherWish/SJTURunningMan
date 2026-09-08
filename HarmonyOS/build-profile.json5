@@ -1,0 +1,49 @@
+{
+  "app": {
+    // 敏感信息警示：本地签名配置（signingConfigs 的证书路径/口令）请勿提交！
+    // 证书与口令由 DevEco Studio 在本机自动生成，存放于用户目录 ~/.ohos/config，
+    // 不随仓库分发。需要签名时在 DevEco 中重新执行“自动生成签名”即可。
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        // 编译 SDK 版本：API 26.0.0（HarmonyOS 6+，沉浸光感起始版本）
+        "compileSdkVersion": "26.0.0",
+        // 目标 API 版本：不低于 26.0.0，以适配沉浸光感（Immersive Light）视效
+        "targetSdkVersion": "26.0.0",
+        // 最低兼容 HarmonyOS 6.0（API 20）
+        "compatibleSdkVersion": "6.0.0(20)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

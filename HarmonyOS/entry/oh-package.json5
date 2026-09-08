@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "交我润 - SJTU 一键校园跑工具 HarmonyOS 版 entry 模块",
+  "main": "",
+  "author": "SJTURunningMan",
+  "license": "",
+  "dependencies": {}
+}
