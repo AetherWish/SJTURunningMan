@@ -84,12 +84,16 @@ export struct AccountScreen {
   }
 
   build() {
+    // 显式 .width('100%') 使选项横条与 RunScreen 的"开始/停止任务"按钮组等宽，
+    // 统一各页面选项横条宽度（HdsListItemCard 在普通 Column 中默认按内容宽度）。
     Column({ space: 8 }) {
       // 登录状态卡片（HDS 原生列表卡片）
       HdsListItemCard(this.accountCardOptions())
+        .width('100%')
 
       // 关于入口（HDS 原生列表卡片）
       HdsListItemCard(this.aboutCardOptions())
+        .width('100%')
 
       Blank()
     }

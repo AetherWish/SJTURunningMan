@@ -361,21 +361,28 @@ export struct RunScreen {
             .fontColor($r('app.color.text_secondary'))
             .margin({ left: 4 })
 
+          // HdsListItemCard 置于普通 Column 中时不会自动撑满父宽（Column 子项默认按内容宽度），
+          // 显式 .width('100%') 使每张选项横条与下方"开始/停止任务"按钮组等宽（= 内容区满宽）。
           Column({ space: 8 }) {
             // 1. 跑步天数（下拉选择 + 自定义）
             HdsListItemCard(this.daysCardOptions())
+              .width('100%')
 
             // 2. 开始时间（下拉选择 + 自定义）
             HdsListItemCard(this.timeCardOptions())
+              .width('100%')
 
             // 3. 起始日期（整行点击弹出日历选择）
             HdsListItemCard(this.dateCardOptions())
+              .width('100%')
 
             // 4. 跑步路线（下拉选择 + 新增/删除）
             HdsListItemCard(this.routeCardOptions())
+              .width('100%')
 
             // 5. 目标距离：锁定 1-5km（滑杆 + 数值）
             HdsListItemCard(this.distanceCardOptions())
+              .width('100%')
           }
           .width('100%')
 
