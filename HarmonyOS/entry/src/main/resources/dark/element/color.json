@@ -1,0 +1,60 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#141218"
+    },
+    {
+      "name": "page_background",
+      "value": "#141218"
+    },
+    {
+      "name": "brand_primary",
+      "value": "#D0BCFF"
+    },
+    {
+      "name": "brand_primary_container",
+      "value": "#4A4458"
+    },
+    {
+      "name": "brand_on_primary_container",
+      "value": "#EADDFF"
+    },
+    {
+      "name": "card_surface",
+      "value": "#211F26"
+    },
+    {
+      "name": "text_primary",
+      "value": "#E6E0E9"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#CAC4D0"
+    },
+    {
+      "name": "outline",
+      "value": "#938F99"
+    },
+    {
+      "name": "outline_variant",
+      "value": "#49454F"
+    },
+    {
+      "name": "error_color",
+      "value": "#F2B8B5"
+    },
+    {
+      "name": "error_container",
+      "value": "#8C1D18"
+    },
+    {
+      "name": "on_error_container",
+      "value": "#F9DEDC"
+    },
+    {
+      "name": "log_panel_background",
+      "value": "#4D36343B"
+    }
+  ]
+}
