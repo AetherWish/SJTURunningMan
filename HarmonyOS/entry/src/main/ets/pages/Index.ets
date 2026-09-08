@@ -6,6 +6,7 @@ import {
 } from '@kit.UIDesignKit';
 import { preferences } from '@kit.ArkData';
 import { RunScreen } from '../view/RunScreen';
+import { RouteScreen } from '../view/RouteScreen';
 import { AccountScreen } from '../view/AccountScreen';
 import { LoginPage } from '../pages/Login';
 import { RouteDesignPage } from '../pages/RouteDesign';
@@ -163,6 +164,13 @@ struct Index {
                 { normal: new SymbolGlyphModifier($r('sys.symbol.figure_running')) }, '开润'))
 
               TabContent() {
+                // 路线页：底栏入口位于"开润"与"账号"之间，地图图标（系统符号库）
+                RouteScreen({ navStack: this.pathStack })
+              }
+              .tabBar(new BottomTabBarStyle(
+                { normal: new SymbolGlyphModifier($r('sys.symbol.map')) }, '路线'))
+
+              TabContent() {
                 AccountScreen({ navStack: this.pathStack })
               }
               .tabBar(new BottomTabBarStyle(
@@ -174,7 +182,7 @@ struct Index {
             .onChange((index: number) => {
               this.selectedTab = index;
               // 切到“账号”页时刷新登录状态（等价 Android Compose 切换 tab 重组时的 cookie 检查）
-              if (index === 1) {
+              if (index === 2) {
                 this.viewModel.refreshLoginState();
               }
             })
@@ -191,8 +199,9 @@ struct Index {
           .titleBar({
             content: {
               title: {
-                // 一级页大标题随页签切换（开润/账号）
-                mainTitle: this.selectedTab === 0 ? '开润' : '账号'
+                // 一级页大标题随页签切换（开润/路线/账号）
+                mainTitle: this.selectedTab === 0 ? '开润'
+                  : (this.selectedTab === 1 ? '路线' : '账号')
               }
             },
             style: {

@@ -201,12 +201,10 @@ export struct RunScreen {
         .selectedOptionFont({ size: 14 })
         .width(170)
         .onSelect((index: number, text?: string) => {
+          // 下拉仅保留已保存路线的选择；"设定新路线"入口已迁移至"路线"页签
           const routes = this.viewModel.routes;
           if (index < routes.length) {
             this.viewModel.selectRoute(routes[index]);
-          } else {
-            // “设定新路线”
-            this.navStack.pushPathByName('RouteDesign', null);
           }
         })
 
@@ -259,7 +257,7 @@ export struct RunScreen {
     for (let i = 0; i < routes.length; i++) {
       labels.push(`${routes[i].name}（${routes[i].pointCount} 个点${routes[i].isDefault ? ' · 默认' : ''}）`);
     }
-    labels.push('＋ 设定新路线');
+    // "设定新路线"入口已迁移至一级页"路线"页签（RouteScreen），下拉仅保留路线选择
     return labels;
   }
 
