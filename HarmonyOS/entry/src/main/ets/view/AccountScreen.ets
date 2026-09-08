@@ -34,7 +34,6 @@ export struct AccountScreen {
   /** 登录状态卡片选项 */
   private accountCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
-      cardWidth: '100%',
       prefixItem: hdsPrefixIcon($r('sys.symbol.person_crop_circle_fill_1')),
       textItem: {
         primaryText: { text: 'JAccount 账号' },
@@ -74,7 +73,6 @@ export struct AccountScreen {
   /** 关于入口卡片选项 */
   private aboutCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
-      cardWidth: '100%',
       prefixItem: hdsPrefixIcon($r('sys.symbol.info_circle')),
       textItem: hdsLabelItem('关于'),
       suffixItem: new SuffixArrow(),
