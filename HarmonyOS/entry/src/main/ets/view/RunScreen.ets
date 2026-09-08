@@ -281,6 +281,7 @@ export struct RunScreen {
   private daysCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.calendar')),
+      cardWidth: '100%',
       textItem: hdsLabelItem('跑步天数'),
       suffixItem: new SuffixCustomBuilder((): void => {
         this.DaysSelector()
@@ -293,6 +294,7 @@ export struct RunScreen {
   private timeCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.clock')),
+      cardWidth: '100%',
       textItem: hdsLabelItem('开始时间'),
       suffixItem: new SuffixCustomBuilder((): void => {
         this.TimeSelector()
@@ -305,6 +307,7 @@ export struct RunScreen {
   private dateCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.calendar')),
+      cardWidth: '100%',
       textItem: hdsLabelItem('起始日期'),
       suffixItem: new SuffixText({ text: this.dateText }),
       onClick: (): void => {
@@ -328,6 +331,7 @@ export struct RunScreen {
   private routeCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.map')),
+      cardWidth: '100%',
       textItem: hdsLabelItem('跑步路线'),
       suffixItem: new SuffixCustomBuilder((): void => {
         this.RouteSelector()
@@ -340,6 +344,7 @@ export struct RunScreen {
   private distanceCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.figure_run')),
+      cardWidth: '100%',
       textItem: hdsLabelItem('目标距离'),
       suffixItem: new SuffixCustomBuilder((): void => {
         this.DistanceSlider()
@@ -510,13 +515,14 @@ export struct RunScreen {
         .width('100%')
         // 四边统一内边距：top 额外叠加 HdsNavigation FULL 大标题栏高度（112vp）——
         // titleBar 为悬浮层覆盖在内容上方，官方示例要求内容首部预留等高空间避让；
-        // bottom 为悬浮页签预留空间。
+        // bottom 预留悬浮页签整高（页签本体 + barBottomMargin 24 + 余量），
+        // 避免日志内容在页签下方与底部导航条（手势指示条）之间露出，保证底部沉浸。
         // 注意 ArkUI 同属性链式调用后者覆盖前者，不可拆成两次 .padding()
         .padding({
           left: 16,
           right: 16,
           top: HDS_FULL_TITLE_BAR_HEIGHT + 16,
-          bottom: 96
+          bottom: 120
         })
       }
       .scrollable(ScrollDirection.Vertical)

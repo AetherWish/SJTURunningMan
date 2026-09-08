@@ -16,6 +16,7 @@ export struct RouteScreen {
   /** 设定新路线入口卡片选项（等价原 RunScreen 下拉"＋ 设定新路线"项） */
   private newRouteCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
+      cardWidth: '100%',
       prefixItem: hdsPrefixIcon($r('sys.symbol.map')),
       textItem: {
         primaryText: { text: '设定新路线' },

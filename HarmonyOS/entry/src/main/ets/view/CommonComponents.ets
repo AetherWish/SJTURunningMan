@@ -51,6 +51,13 @@ export interface HdsCardOptions {
   textItem?: CardTextItemOptions;
   /** 右侧后缀控件（自定义构建器 / 文本 / 箭头） */
   suffixItem?: SuffixCustomBuilder | SuffixText | SuffixArrow;
+  /**
+   * 卡片绘制宽度。HdsListItemCard 默认卡面窄于组件 bounds（左右留 HDS 默认边距），
+   * 传 '100%' 使卡面铺满组件（与"开始/停止任务"按钮行等宽）。
+   * 注：须用 kit 的 Dimension（= PX|VP|FP|LPX|Percentage|Resource，不接受泛型 string），
+   * 用 Length 会因 string 不可赋给 Dimension 编译报错（10505001）。
+   */
+  cardWidth?: Dimension;
   /** 整卡点击回调 */
   onClick?: OnClickCallback;
 }
