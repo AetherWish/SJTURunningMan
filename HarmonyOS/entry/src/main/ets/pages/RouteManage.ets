@@ -180,14 +180,17 @@ export struct RouteManagePage {
               .fontColor($r('app.color.text_secondary'))
               .margin({ left: 4 })
 
-            // 官方结构：HdsListItemCard 置于 List>ListItem；key 含 index 保证排序变化后刷新
+            // 官方结构：HdsListItemCard 置于 List>ListItem。
+            // key 须包含“启动默认”标记：ForEach 按 key 复用组件，key 不含该标记时
+            // 设默认后列表顺序未变、key 不变，行内容不会刷新（需退出重进才更新——旧 bug）；
+            // key 不含 index：拖拽排序时保持 key 稳定，避免拖拽动画中重建列表项。
             List({ space: 8 }) {
               ForEach(this.viewModel.routes, (route: RouteInfo, index: number) => {
                 ListItem() {
                   HdsListItemCard(this.routeCardOptions(route, index, this.viewModel.routes.length))
                     .width('100%')
                 }
-              }, (route: RouteInfo, index: number) => `${route.id}_${index}`)
+              }, (route: RouteInfo) => `${route.id}_${route.isDefault ? 1 : 0}`)
             }
             .width('100%')
 
