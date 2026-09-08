@@ -331,18 +331,21 @@ export class RouteManager {
     return true;
   }
 
-  /** 调整路线排序（offset: -1 上移 / 1 下移） */
-  moveRoute(routeId: string, offset: number): boolean {
-    const order = this.getRouteOrder();
-    const index = order.indexOf(routeId);
-    const target = index + offset;
-    if (index < 0 || target < 0 || target >= order.length) {
+  /**
+   * 按给定 id 顺序持久化路线排序（拖拽排序）。
+   * 校验：id 集合须与当前路线完全一致（无缺失、无重复、无多余）。
+   */
+  setRouteOrder(orderedIds: string[]): boolean {
+    const current = this.getRouteOrder();
+    if (orderedIds.length !== current.length) {
       return false;
     }
-    const tmp = order[index];
-    order[index] = order[target];
-    order[target] = tmp;
-    this.saveRouteOrder(order);
+    for (let i = 0; i < orderedIds.length; i++) {
+      if (current.indexOf(orderedIds[i]) < 0 || orderedIds.indexOf(orderedIds[i]) !== i) {
+        return false;
+      }
+    }
+    this.saveRouteOrder(orderedIds);
     return true;
   }
 

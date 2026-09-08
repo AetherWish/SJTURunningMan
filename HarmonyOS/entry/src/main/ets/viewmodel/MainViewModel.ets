@@ -102,10 +102,17 @@ export class MainViewModel {
     }
   }
 
-  /** 调整路线排序（offset: -1 上移 / 1 下移） */
-  moveRoute(route: RouteInfo, offset: number): void {
-    if (this.routeManager.moveRoute(route.id, offset)) {
-      this.loadRoutes();
+  /**
+   * 同步并持久化当前列表顺序（拖拽排序）。
+   * 不重建列表数据（routes 已与拖拽后的 UI 一致），避免打断拖拽动画。
+   */
+  syncRouteOrder(logChange: boolean): void {
+    const ids: string[] = [];
+    for (let i = 0; i < this.routes.length; i++) {
+      ids.push(this.routes[i].id);
+    }
+    if (this.routeManager.setRouteOrder(ids) && logChange) {
+      this.logMsg('路线排序已更新');
     }
   }
 

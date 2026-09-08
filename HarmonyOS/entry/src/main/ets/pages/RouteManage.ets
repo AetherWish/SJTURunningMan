@@ -16,6 +16,11 @@ import { MainViewModel } from '../viewmodel/MainViewModel';
 export struct RouteManagePage {
   viewModel: MainViewModel = MainViewModel.getInstance();
 
+  aboutToDisappear(): void {
+    // 兜底：拖拽中途异常退出页面时，把内存顺序落盘（正常路径由 onDrop 持久化）
+    this.viewModel.syncRouteOrder(false);
+  }
+
   /** 路线行卡片选项：名称/点数 + 设默认、上下移、删除控件 */
   private routeCardOptions(route: RouteInfo, index: number, total: number): HdsCardOptions {
     const options: HdsCardOptions = {
@@ -31,7 +36,7 @@ export struct RouteManagePage {
     return options;
   }
 
-  /** 行内控件：设为默认（当前默认以文本标记）、上移、下移、删除 */
+  /** 行内控件：设为默认（当前默认以文本标记）、删除；排序改为长按拖动列表项 */
   @Builder
   RouteControls(route: RouteInfo, index: number, total: number) {
     Row({ space: 4 }) {
@@ -57,36 +62,6 @@ export struct RouteManagePage {
           .width(32)
           .textAlign(TextAlign.Center)
       }
-
-      Button() {
-        SymbolGlyph($r('sys.symbol.chevron_up'))
-          .fontSize(14)
-          .fontColor([$r('app.color.text_primary')])
-      }
-      .width(32)
-      .height(32)
-      .borderRadius(8)
-      .backgroundColor($r('app.color.card_surface'))
-      .enabled(index > 0)
-      .opacity(index > 0 ? 1 : 0.4)
-      .onClick(() => {
-        this.viewModel.moveRoute(route, -1);
-      })
-
-      Button() {
-        SymbolGlyph($r('sys.symbol.chevron_down'))
-          .fontSize(14)
-          .fontColor([$r('app.color.text_primary')])
-      }
-      .width(32)
-      .height(32)
-      .borderRadius(8)
-      .backgroundColor($r('app.color.card_surface'))
-      .enabled(index < total - 1)
-      .opacity(index < total - 1 ? 1 : 0.4)
-      .onClick(() => {
-        this.viewModel.moveRoute(route, 1);
-      })
 
       Button() {
         SymbolGlyph($r('sys.symbol.trash'))
@@ -191,10 +166,21 @@ export struct RouteManagePage {
                     .width('100%')
                 }
               }, (route: RouteInfo) => `${route.id}_${route.isDefault ? 1 : 0}`)
+                // 官方拖拽排序：ForEach.onMove（仅 List>ListItem 生效，API 12+），
+                // 长按列表项拖动排序；拖拽中同步内存顺序，onDrop 时持久化最终顺序
+                .onMove((from: number, to: number) => {
+                  const arr = this.viewModel.routes;
+                  const moved = arr.splice(from, 1)[0];
+                  arr.splice(to, 0, moved);
+                }, {
+                  onDrop: () => {
+                    this.viewModel.syncRouteOrder(true);
+                  }
+                })
             }
             .width('100%')
 
-            Text('提示：对勾设为启动默认路线；上下箭头调整排序；删除至少保留一条路线。')
+            Text('提示：长按路线拖动可排序；对勾设为启动默认路线；删除至少保留一条路线。')
               .fontSize(12)
               .fontColor($r('app.color.outline'))
               .margin({ left: 4 })
