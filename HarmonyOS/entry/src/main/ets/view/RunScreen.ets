@@ -1,6 +1,5 @@
 import { promptAction } from '@kit.ArkUI';
 import { MainViewModel } from '../viewmodel/MainViewModel';
-import { RouteInfo } from '../model/RouteInfo';
 import {
   DropdownSelection,
   toSelectOptions,
@@ -201,54 +200,14 @@ export struct RunScreen {
         .selectedOptionFont({ size: 14 })
         .width(170)
         .onSelect((index: number, text?: string) => {
-          // 下拉仅保留已保存路线的选择；"设定新路线"入口已迁移至"路线"页签
+          // 下拉仅保留已保存路线的选择；删除/排序/设默认已统一迁至“路线管理”
           const routes = this.viewModel.routes;
           if (index < routes.length) {
             this.viewModel.selectRoute(routes[index]);
           }
         })
-
-      // 删除当前选中的自定义路线（对应 Android 下拉项内的删除按钮）
-      if (this.viewModel.selectedRoute !== undefined && !this.viewModel.selectedRoute.isDefault) {
-        Button() {
-          SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(15)
-            .fontColor([$r('app.color.error_color')])
-        }
-        .width(38)
-        .height(38)
-        .borderRadius(8)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          if (this.viewModel.selectedRoute !== undefined) {
-            this.confirmDeleteRoute(this.viewModel.selectedRoute);
-          }
-        })
-      }
     }
     .alignItems(VerticalAlign.Center)
-  }
-
-  /** 删除确认对话框（等价 Android RouteSelector 中的 routeToDelete AlertDialog） */
-  private confirmDeleteRoute(route: RouteInfo): void {
-    AlertDialog.show({
-      title: '删除路线',
-      message: `确定要删除路线「${route.name}」吗？`,
-      autoCancel: true,
-      alignment: DialogAlignment.Center,
-      primaryButton: {
-        value: '取消',
-        action: () => {
-        }
-      },
-      secondaryButton: {
-        value: '删除',
-        fontColor: $r('app.color.error_color'),
-        action: () => {
-          this.viewModel.deleteRoute(route);
-        }
-      }
-    });
   }
 
   private buildRouteOptionLabels(): string[] {
