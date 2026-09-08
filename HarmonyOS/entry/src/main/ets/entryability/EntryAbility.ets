@@ -79,8 +79,11 @@ export default class EntryAbility extends UIAbility {
    * 按当前颜色模式将状态栏/导航栏背景色设为页面背景色（消除色差），
    * 内容色设为对比可读的图标/文字色（保证状态栏图标可见）。
    * SystemBarProperties 仅接受十六进制色值字符串，不接受 Resource。
+   *
+   * 注：Configuration.colorMode 为可选字段（类型 ColorMode | undefined），
+   * 故此参数同样接受 undefined——非 DARK（含 NOT_SET/未设置）一律按浅色处理。
    */
-  private async applyImmersiveSystemBar(colorMode: ConfigurationConstant.ColorMode): Promise<void> {
+  private async applyImmersiveSystemBar(colorMode: ConfigurationConstant.ColorMode | undefined): Promise<void> {
     const win = this.mainWindow;
     if (win === null) {
       // 主窗口尚未创建（理论上不会到此分支，防御性返回）
