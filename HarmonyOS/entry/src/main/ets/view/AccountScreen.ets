@@ -84,12 +84,24 @@ export struct AccountScreen {
   }
 
   build() {
+    // 官方《设置列表卡片样式》：HdsListItemCard 置于 List>ListItem 中，
+    // List（width '100%'）经 ListItem 提供满宽，与 RunScreen 的选项横条
+    // 及"开始/停止任务"按钮组等宽，统一各页面选项横条宽度。
     Column({ space: 8 }) {
-      // 登录状态卡片（HDS 原生列表卡片）
-      HdsListItemCard(this.accountCardOptions())
+      List({ space: 8 }) {
+        ListItem() {
+          // 登录状态卡片（HDS 原生列表卡片）
+          HdsListItemCard(this.accountCardOptions())
+            .width('100%')
+        }
 
-      // 关于入口（HDS 原生列表卡片）
-      HdsListItemCard(this.aboutCardOptions())
+        ListItem() {
+          // 关于入口（HDS 原生列表卡片）
+          HdsListItemCard(this.aboutCardOptions())
+            .width('100%')
+        }
+      }
+      .width('100%')
 
       Blank()
     }

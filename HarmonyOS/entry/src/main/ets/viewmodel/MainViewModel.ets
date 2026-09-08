@@ -80,28 +80,66 @@ export class MainViewModel {
   }
 
   deleteRoute(route: RouteInfo): void {
-    if (route.isDefault) {
-      this.logMsg('默认路线不能删除');
-      return;
-    }
+    // 至少保留一条路线的约束由 RouteManager.deleteRoute 保证；
+    // 删除启动默认路线时，顺位第一的路线自动成为新的启动默认。
     const success = this.routeManager.deleteRoute(route.id);
     if (success) {
       this.logMsg(`已删除路线: ${route.name}`);
       this.loadRoutes(); // 刷新列表
-      // 如果删除的是当前选中的路线，切换到默认路线
-      if (this.selectedRoute !== undefined && this.selectedRoute.id === route.id) {
-        let fallback: RouteInfo | undefined = undefined;
-        for (let i = 0; i < this.routes.length; i++) {
-          if (this.routes[i].isDefault) {
-            fallback = this.routes[i];
-            break;
-          }
-        }
-        this.selectedRoute = fallback;
-      }
+      this.reselectIfRemoved(route.id);
     } else {
-      this.logMsg('删除路线失败');
+      this.logMsg('删除失败：至少需要保留一条路线');
     }
+  }
+
+  /** 设为启动默认路线（启动时预选该路线） */
+  setStartupRoute(route: RouteInfo): void {
+    if (this.routeManager.setStartupRoute(route.id)) {
+      this.logMsg(`已设为启动默认路线: ${route.name}`);
+      this.loadRoutes();
+    } else {
+      this.logMsg('设置默认路线失败');
+    }
+  }
+
+  /**
+   * 同步并持久化当前列表顺序（拖拽排序）。
+   * 不重建列表数据（routes 已与拖拽后的 UI 一致），避免打断拖拽动画。
+   */
+  syncRouteOrder(logChange: boolean): void {
+    const ids: string[] = [];
+    for (let i = 0; i < this.routes.length; i++) {
+      ids.push(this.routes[i].id);
+    }
+    if (this.routeManager.setRouteOrder(ids) && logChange) {
+      this.logMsg('路线排序已更新');
+    }
+  }
+
+  /** 还原到初始状态：仅保留思源湖路线并设为启动默认 */
+  restoreRoutes(): void {
+    this.routeManager.restoreInitial();
+    this.logMsg('已还原为初始路线状态（仅思源湖路线）');
+    this.loadRoutes();
+    this.reselectIfRemoved('');
+  }
+
+  /** 路线增删后修正选中项：被选中的路线已被删除时，改选启动默认路线 */
+  private reselectIfRemoved(removedId: string): void {
+    if (this.selectedRoute !== undefined && this.selectedRoute.id !== removedId) {
+      return; // 选中路线仍存在（排序变化不影响 id）
+    }
+    let fallback: RouteInfo | undefined = undefined;
+    for (let i = 0; i < this.routes.length; i++) {
+      if (this.routes[i].isDefault) {
+        fallback = this.routes[i];
+        break;
+      }
+    }
+    if (fallback === undefined && this.routes.length > 0) {
+      fallback = this.routes[0];
+    }
+    this.selectedRoute = fallback;
   }
 
   refreshRoutes(): void {
@@ -118,7 +156,8 @@ export class MainViewModel {
     if (route === undefined) {
       return [];
     }
-    if (route.isDefault) {
+    // 内置思源湖路线坐标走 rawfile（以 id 判定，勿用 isDefault——其含义已是“启动默认路线”）
+    if (route.id === RouteManager.BUILTIN_ROUTE_ID) {
       return this.routeManager.readDefaultRouteCoordinates();
     }
     const points = GpsUtil.readCoordinatesFromFile(route.filePath);

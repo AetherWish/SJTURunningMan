@@ -1,6 +1,5 @@
 import { promptAction } from '@kit.ArkUI';
 import { MainViewModel } from '../viewmodel/MainViewModel';
-import { RouteInfo } from '../model/RouteInfo';
 import {
   DropdownSelection,
   toSelectOptions,
@@ -201,65 +200,23 @@ export struct RunScreen {
         .selectedOptionFont({ size: 14 })
         .width(170)
         .onSelect((index: number, text?: string) => {
+          // 下拉仅保留已保存路线的选择；删除/排序/设默认已统一迁至“路线管理”
           const routes = this.viewModel.routes;
           if (index < routes.length) {
             this.viewModel.selectRoute(routes[index]);
-          } else {
-            // “设定新路线”
-            this.navStack.pushPathByName('RouteDesign', null);
           }
         })
-
-      // 删除当前选中的自定义路线（对应 Android 下拉项内的删除按钮）
-      if (this.viewModel.selectedRoute !== undefined && !this.viewModel.selectedRoute.isDefault) {
-        Button() {
-          SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(15)
-            .fontColor([$r('app.color.error_color')])
-        }
-        .width(38)
-        .height(38)
-        .borderRadius(8)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          if (this.viewModel.selectedRoute !== undefined) {
-            this.confirmDeleteRoute(this.viewModel.selectedRoute);
-          }
-        })
-      }
     }
     .alignItems(VerticalAlign.Center)
-  }
-
-  /** 删除确认对话框（等价 Android RouteSelector 中的 routeToDelete AlertDialog） */
-  private confirmDeleteRoute(route: RouteInfo): void {
-    AlertDialog.show({
-      title: '删除路线',
-      message: `确定要删除路线「${route.name}」吗？`,
-      autoCancel: true,
-      alignment: DialogAlignment.Center,
-      primaryButton: {
-        value: '取消',
-        action: () => {
-        }
-      },
-      secondaryButton: {
-        value: '删除',
-        fontColor: $r('app.color.error_color'),
-        action: () => {
-          this.viewModel.deleteRoute(route);
-        }
-      }
-    });
   }
 
   private buildRouteOptionLabels(): string[] {
     const labels: string[] = [];
     const routes = this.viewModel.routes;
     for (let i = 0; i < routes.length; i++) {
-      labels.push(`${routes[i].name}（${routes[i].pointCount} 个点${routes[i].isDefault ? ' · 默认' : ''}）`);
+      labels.push(`${routes[i].name}（${routes[i].pointCount} 个点${routes[i].isDefault ? ' · 启动默认' : ''}）`);
     }
-    labels.push('＋ 设定新路线');
+    // "设定新路线"入口已迁移至一级页"路线"页签（RouteScreen），下拉仅保留路线选择
     return labels;
   }
 
@@ -361,21 +318,39 @@ export struct RunScreen {
             .fontColor($r('app.color.text_secondary'))
             .margin({ left: 4 })
 
-          Column({ space: 8 }) {
-            // 1. 跑步天数（下拉选择 + 自定义）
-            HdsListItemCard(this.daysCardOptions())
+          // 官方《设置列表卡片样式》：HdsListItemCard 置于 List>ListItem 中，
+          // 由 List（width '100%'）经 ListItem 提供满宽，与下方"开始/停止任务"
+          // 按钮组（Row.width('100%')）等宽；卡片仍显式 .width('100%') 兜底。
+          List({ space: 8 }) {
+            ListItem() {
+              // 1. 跑步天数（下拉选择 + 自定义）
+              HdsListItemCard(this.daysCardOptions())
+                .width('100%')
+            }
 
-            // 2. 开始时间（下拉选择 + 自定义）
-            HdsListItemCard(this.timeCardOptions())
+            ListItem() {
+              // 2. 开始时间（下拉选择 + 自定义）
+              HdsListItemCard(this.timeCardOptions())
+                .width('100%')
+            }
 
-            // 3. 起始日期（整行点击弹出日历选择）
-            HdsListItemCard(this.dateCardOptions())
+            ListItem() {
+              // 3. 起始日期（整行点击弹出日历选择）
+              HdsListItemCard(this.dateCardOptions())
+                .width('100%')
+            }
 
-            // 4. 跑步路线（下拉选择 + 新增/删除）
-            HdsListItemCard(this.routeCardOptions())
+            ListItem() {
+              // 4. 跑步路线（下拉选择 + 新增/删除）
+              HdsListItemCard(this.routeCardOptions())
+                .width('100%')
+            }
 
-            // 5. 目标距离：锁定 1-5km（滑杆 + 数值）
-            HdsListItemCard(this.distanceCardOptions())
+            ListItem() {
+              // 5. 目标距离：锁定 1-5km（滑杆 + 数值）
+              HdsListItemCard(this.distanceCardOptions())
+                .width('100%')
+            }
           }
           .width('100%')
 

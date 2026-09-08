@@ -1,8 +1,8 @@
 {
   "modelVersion": "5.0.0",
   "name": "sjturunningman_harmonyos",
-  "version": "4.2.0",
-  "description": "SJTU 一键校园跑工具（学习/研究用途）HarmonyOS NEXT 移植版，由 Android 原生工程迁移而来。",
+  "version": "4.3.0",
+  "description": "SJTU 一键校园跑工具 HarmonyOS NEXT 移植版",
   "main": "",
   "author": "SJTURunningMan",
   "license": "",
