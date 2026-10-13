@@ -15,6 +15,7 @@
 - [5. 自定义路线](#5-自定义路线)
 - [6. 权限说明](#6-权限说明)
 - [7. 与其他端的差异](#7-与其他端的差异)
+- [8. 已知的 ArkTS 工具链陷阱](#8-已知的-arkts-工具链陷阱)
 
 ## 1. 安装 HAP 包
 
@@ -92,3 +93,25 @@
 | 自动化测试 | JVM 单元测试 | 暂无 |
 
 自行编译与打包见 [build.md](./build.md)；路线坐标系说明见 [routes.md](./routes.md)。
+
+## 8. 已知的 ArkTS 工具链陷阱
+
+以下问题能通过编译，只在真机运行时才暴露，改动界面时需要留意。
+
+**自定义组件不能直接写在传给外部组件的箭头函数里。** ArkTS 编译器只会把处于声明式 UI 上下文中的
+`Foo({...})` 重写成 `new Foo(this, {...})`。把自定义组件写在对象的箭头函数属性里（例如
+`new SuffixCustomBuilder((): void => { DistanceSlider({...}) })`）时不会重写，运行到该闭包即抛
+`TypeError: class constructor cannot called without 'new'`，应用直接闪退。正确写法是把组件放进 `@Builder`
+方法，再由闭包调用该方法：
+
+```typescript
+@Builder
+DistanceSliderBuilder() {
+  DistanceSlider({ /* ... */ })
+}
+
+// suffixItem: new SuffixCustomBuilder((): void => { this.DistanceSliderBuilder() })
+```
+
+> 验证方法：构建后查看 `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` 下的
+> 中间产物 `.ts` 文件，确认组件被重写成 `new Foo(this, {...})`；仍是裸调用 `Foo({...})` 就一定会崩。

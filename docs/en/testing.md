@@ -109,7 +109,7 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 
 **Startup and gate**
 
-- [ ] `assembleHap` succeeds; the installed app starts with no jscrash
+- [ ] `assembleHap` succeeds; the installed app starts with no jscrash (in particular, `class constructor cannot called without 'new'` means a custom component was written inside an arrow function — see [harmonyos.md](./harmonyos.md#8-known-arkts-toolchain-traps))
 - [ ] First launch shows the full-screen "使用承诺书" card; "我承诺，进入软件" is disabled until the checkbox is ticked
 - [ ] "退出" ends the app immediately; after accepting, a restart does not show the gate again
 

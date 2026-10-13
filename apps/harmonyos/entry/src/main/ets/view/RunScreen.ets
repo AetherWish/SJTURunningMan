@@ -145,19 +145,32 @@ export struct RunScreen {
       prefixItem: hdsPrefixIcon($r('sys.symbol.figure_run')),
       textItem: hdsLabelItem('目标距离'),
       suffixItem: new SuffixCustomBuilder((): void => {
-        DistanceSlider({
-          distanceKm: this.distanceKm,
-          minDistanceKm: AppConfig.MIN_DISTANCE_KM,
-          maxDistanceKm: AppConfig.MAX_DISTANCE_KM,
-          isEnabled: !this.viewModel.running,
-          onDistanceChange: (value: number): void => {
-            this.distanceKm = value;
-            this.viewModel.updateConfig(this.buildConfig());
-          }
-        })
+        this.DistanceSliderBuilder()
       })
     };
     return options;
+  }
+
+  /**
+   * 目标距离滑杆（供 HdsListItemCard 的 suffix 自定义构建器使用）。
+   *
+   * 必须在 @Builder 方法里调用自定义组件：直接把 `DistanceSlider({...})` 写在
+   * SuffixCustomBuilder 的箭头函数里，ArkTS 编译器不会把该调用重写成
+   * `new DistanceSlider(this, {...})`，运行时会抛出
+   * `TypeError: class constructor cannot called without 'new'`（真机 nova 12 Ultra 崩溃）。
+   */
+  @Builder
+  DistanceSliderBuilder() {
+    DistanceSlider({
+      distanceKm: this.distanceKm,
+      minDistanceKm: AppConfig.MIN_DISTANCE_KM,
+      maxDistanceKm: AppConfig.MAX_DISTANCE_KM,
+      isEnabled: !this.viewModel.running,
+      onDistanceChange: (value: number): void => {
+        this.distanceKm = value;
+        this.viewModel.updateConfig(this.buildConfig());
+      }
+    })
   }
 
   private pickDate(): void {

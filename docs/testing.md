@@ -109,7 +109,7 @@ cd apps/android
 
 **启动与门禁**
 
-- [ ] `assembleHap` 成功，安装后能正常启动，无 jscrash
+- [ ] `assembleHap` 成功，安装后能正常启动，无 jscrash（重点：抛 `class constructor cannot called without 'new'` 说明有自定义组件被写在箭头函数里，见 [harmonyos.md](./harmonyos.md#8-已知的-arkts-工具链陷阱)）
 - [ ] 首次进入出现「使用承诺书」全屏卡片，未勾选时「我承诺，进入软件」不可点
 - [ ] 点「退出」应用直接结束；勾选同意后重启应用不再弹出
 

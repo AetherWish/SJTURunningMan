@@ -15,6 +15,7 @@ Version **`4.5.0`**, bundle name `com.sjtu.runner` (`apps/harmonyos/AppScope/app
 - [5. Custom routes](#5-custom-routes)
 - [6. Permissions](#6-permissions)
 - [7. Differences from other platforms](#7-differences-from-other-platforms)
+- [8. Known ArkTS toolchain traps](#8-known-arkts-toolchain-traps)
 
 ## 1. Installing the HAP
 
@@ -92,3 +93,27 @@ HarmonyOS **does not read location or phone state**: tracks are interpolated off
 | Automated tests | JVM unit tests | None yet |
 
 Building and packaging: [build.md](./build.md). Coordinate systems: [routes.md](./routes.md).
+
+## 8. Known ArkTS toolchain traps
+
+These compile fine and only fail at runtime on a device, so keep them in mind when changing the UI.
+
+**Never put a custom component directly inside an arrow function passed to an external component.** The ArkTS
+compiler only rewrites `Foo({...})` into `new Foo(this, {...})` when the call sits in a declarative-UI context.
+Written as an arrow-function property of an object — for example
+`new SuffixCustomBuilder((): void => { DistanceSlider({...}) })` — the call is not rewritten, and evaluating the
+closure throws `TypeError: class constructor cannot called without 'new'`, crashing the app. Put the component in
+an `@Builder` method and call that method from the closure instead:
+
+```typescript
+@Builder
+DistanceSliderBuilder() {
+  DistanceSlider({ /* ... */ })
+}
+
+// suffixItem: new SuffixCustomBuilder((): void => { this.DistanceSliderBuilder() })
+```
+
+> To verify: after building, inspect the intermediate `.ts` files under
+> `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` and confirm the component became
+> `new Foo(this, {...})`. A bare `Foo({...})` call there will always crash.
