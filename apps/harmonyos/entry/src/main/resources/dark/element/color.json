@@ -55,6 +55,22 @@
     {
       "name": "log_panel_background",
       "value": "#4D36343B"
+    },
+    {
+      "name": "success_color",
+      "value": "#6EE7B7"
+    },
+    {
+      "name": "warning_color",
+      "value": "#F59E0B"
+    },
+    {
+      "name": "warning_container",
+      "value": "#3A2D14"
+    },
+    {
+      "name": "text_on_brand",
+      "value": "#21005D"
     }
   ]
 }

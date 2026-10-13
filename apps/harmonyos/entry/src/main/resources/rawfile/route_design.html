@@ -2,217 +2,620 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>路线设计器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>设计跑步路线</title>
     <style>
+        :root {
+            --primary: #01689B;
+            --primary-light: #4A9CC7;
+            --primary-dark: #003D67;
+            --secondary: #E87525;
+            --secondary-light: #FFA366;
+            --error: #EF4444;
+            --success: #10B981;
+            --bg-light: #F8FAFC;
+            --bg-dark: #121212;
+            --surface-light: #FFFFFF;
+            --surface-dark: #1E1E1E;
+            --text-primary-light: #1E293B;
+            --text-primary-dark: #E2E8F0;
+            --text-secondary-light: #64748B;
+            --text-secondary-dark: #94A3B8;
+            --border-light: #E2E8F0;
+            --border-dark: #374151;
+            --glass-bg: rgba(255, 255, 255, 0.92);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: rgba(0, 0, 0, 0.12);
+            --bg: var(--bg-light);
+            --surface: var(--surface-light);
+            --text-primary: var(--text-primary-light);
+            --text-secondary: var(--text-secondary-light);
+            --border: var(--border-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: var(--bg-dark);
+                --surface: var(--surface-dark);
+                --text-primary: var(--text-primary-dark);
+                --text-secondary: var(--text-secondary-dark);
+                --border: var(--border-dark);
+                --glass-bg: rgba(30, 30, 30, 0.92);
+                --glass-border: rgba(255, 255, 255, 0.1);
+                --glass-shadow: rgba(0, 0, 0, 0.4);
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
+
         body, html, #map-container {
             width: 100%;
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
         }
+
         #toolbar {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            backdrop-filter: blur(10px);
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px var(--glass-shadow);
             z-index: 1000;
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
-        .title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #1a1a2e;
-            margin-bottom: 12px;
+
+        .toolbar-header {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
-        .title::before {
-            content: "🗺️";
-            font-size: 20px;
+
+        .toolbar-header svg {
+            width: 24px;
+            height: 24px;
+            color: var(--primary);
         }
+
+        .toolbar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
         .input-group {
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
+
         .input-group label {
             display: block;
             font-size: 12px;
-            color: #666;
-            margin-bottom: 4px;
-            font-weight: 500;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         .route-name-input {
             width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            font-size: 14px;
-            background: white;
-            transition: all 0.2s;
+            padding: 14px 16px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 16px;
+            background: var(--surface);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            touch-action: manipulation;
         }
+
         .route-name-input:focus {
             outline: none;
-            border-color: #0984e3;
-            box-shadow: 0 0 0 3px rgba(9,132,227,0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(1, 104, 155, 0.1);
         }
-        .stats {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 12px;
-            font-size: 13px;
-            color: #2d3436;
+
+        .route-name-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .stats-container {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(1, 104, 155, 0.08), rgba(1, 104, 155, 0.04));
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
         }
-        .stats .count {
-            font-weight: 700;
-            color: #0984e3;
-            font-size: 18px;
+
+        .stats-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
         }
+
+        .stats-label svg {
+            width: 18px;
+            height: 18px;
+            color: var(--primary);
+        }
+
+        .stats-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
         .button-group {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
-        button {
+
+        .btn {
             flex: 1;
-            padding: 10px;
+            padding: 14px 16px;
             border: none;
-            border-radius: 12px;
-            font-size: 14px;
+            border-radius: 14px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
         }
-        .btn-clear {
-            background: #fff3f0;
-            color: #d63031;
-            border: 1px solid #ffe0db;
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
         }
-        .btn-clear:hover {
-            background: #ffe0db;
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
+
+        .btn-delete:active {
+            background: rgba(239, 68, 68, 0.2);
+            transform: scale(0.98);
+        }
+
         .btn-save {
-            background: #0984e3;
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(1, 104, 155, 0.3);
+        }
+
+        .btn-save:active {
+            background: var(--primary-dark);
+            transform: scale(0.98);
+        }
+
+        .btn-save:disabled {
+            background: var(--text-secondary);
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .hint-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .hint-text svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .map-controls {
+            position: absolute;
+            right: 16px;
+            bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 999;
+        }
+
+        .map-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        .map-btn:active {
+            transform: scale(0.95);
+            background: var(--primary);
+        }
+
+        .map-btn svg {
+            width: 24px;
+            height: 24px;
+            color: var(--text-primary);
+        }
+
+        .map-btn:active svg {
             color: white;
         }
-        .btn-save:hover {
-            background: #0767b3;
+
+        .point-marker {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
         }
-        .btn-save:disabled {
-            background: #b2bec3;
-            cursor: not-allowed;
+
+        .point-marker.start {
+            background: var(--success);
         }
-        .tip {
-            font-size: 11px;
-            color: #999;
-            text-align: center;
-            margin-top: 10px;
+
+        .point-marker.end {
+            background: var(--secondary);
         }
-        @media (max-width: 600px) {
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--surface);
+            color: var(--text-primary);
+            padding: 14px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 400px) {
             #toolbar {
-                top: 10px;
-                left: 10px;
-                right: 10px;
-                padding: 12px;
+                top: 12px;
+                left: 12px;
+                right: 12px;
+                padding: 14px;
             }
-            button {
-                padding: 8px;
+
+            .toolbar-header {
+                margin-bottom: 12px;
+            }
+
+            .toolbar-header svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .toolbar-title {
+                font-size: 16px;
+            }
+
+            .input-group {
+                margin-bottom: 12px;
+            }
+
+            .input-group label {
+                font-size: 11px;
+                margin-bottom: 6px;
+            }
+
+            .route-name-input {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+
+            .stats-container {
+                padding: 10px 12px;
+                margin-bottom: 12px;
+            }
+
+            .stats-label {
+                font-size: 12px;
+            }
+
+            .stats-label svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .stats-value {
+                font-size: 20px;
+            }
+
+            .btn {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+
+            .btn svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .hint-text {
+                font-size: 11px;
+                margin-top: 8px;
+            }
+
+            .hint-text svg {
+                width: 12px;
+                height: 12px;
             }
         }
     </style>
 </head>
 <body>
     <div id="toolbar">
-        <div class="title">设计跑步路线</div>
+        <div class="toolbar-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+                <line x1="9" y1="3" x2="9" y2="18"/>
+                <line x1="15" y1="6" x2="15" y2="21"/>
+            </svg>
+            <span class="toolbar-title">设计跑步路线</span>
+        </div>
+
         <div class="input-group">
             <label>路线名称</label>
-            <input type="text" id="routeName" class="route-name-input" placeholder="例如：夜跑路线、环校一周" autocomplete="off">
+            <input type="text" id="routeName" class="route-name-input" placeholder="例如：夜跑路线、环校一周" autocomplete="off" autocapitalize="sentences">
         </div>
-        <div class="stats">
-            <span>📍 采集点数</span>
-            <span class="count" id="pointCount">0</span>
+
+        <div class="stats-container">
+            <span class="stats-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                采集点数
+            </span>
+            <span class="stats-value" id="pointCount">0</span>
         </div>
+
         <div class="button-group">
-            <button class="btn-clear" onclick="clearAllPoints()">🗑️ 清除所有点</button>
-            <button class="btn-save" id="saveBtn" onclick="saveRoute()" disabled>💾 保存路线</button>
+            <button class="btn btn-delete" id="clearBtn" onclick="clearAllPoints()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                清除
+            </button>
+            <button class="btn btn-save" id="saveBtn" onclick="saveRoute()" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                保存路线
+            </button>
         </div>
-        <div class="tip">💡 提示：点击地图添加点位，点击标记可删除单个点</div>
+
+        <div class="hint-text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            提示：点击地图添加点位，点击标记可删除
+        </div>
     </div>
+
     <div id="map-container"></div>
+
+    <div class="map-controls">
+        <button class="map-btn" onclick="zoomIn()" aria-label="放大">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </button>
+        <button class="map-btn" onclick="zoomOut()" aria-label="缩小">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </button>
+        <button class="map-btn" onclick="centerLocation()" aria-label="定位">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="4"/>
+                <line x1="12" y1="20" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="4" y2="12"/>
+                <line x1="20" y1="12" x2="22" y2="12"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
 
     <script type="text/javascript" src="https://api.map.baidu.com/api?v=3.0&ak=MYUXpppuOOvq99cP2AmDvplAW76VV8vr"></script>
     <script>
-        // 初始化地图
         var map = new BMap.Map("map-container");
         var centerPoint = new BMap.Point(121.442938, 31.031599);
-        map.centerAndZoom(centerPoint, 15);
-        map.enableScrollWheelZoom(true);
-        map.addControl(new BMap.NavigationControl());
-        map.addControl(new BMap.ScaleControl());
+        map.centerAndZoom(centerPoint, 16);
+        map.enableScrollWheelZoom(false);
+        map.enableInertialDragging(true);
 
-        // 存储坐标点
+        var navControl = new BMap.NavigationControl({
+            anchor: BMAP_ANCHOR_TOP_LEFT,
+            type: BMAP_NAVIGATION_CONTROL_ZOOM
+        });
+        map.addControl(navControl);
+
+        var scaleControl = new BMap.ScaleControl({
+            anchor: BMAP_ANCHOR_BOTTOM_LEFT,
+            offset: new BMap.Size(16, 16)
+        });
+        map.addControl(scaleControl);
+
         var points = [];
         var markers = [];
+        var polylines = [];
 
-        // 更新UI
+        function showToast(message) {
+            var toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
         function updateUI() {
             var count = points.length;
-            document.getElementById('pointCount').innerText = count;
+            document.getElementById('pointCount').textContent = count;
             var saveBtn = document.getElementById('saveBtn');
+            var clearBtn = document.getElementById('clearBtn');
             saveBtn.disabled = (count < 2);
+            clearBtn.disabled = (count === 0);
+            clearBtn.style.opacity = (count === 0) ? '0.5' : '1';
+
+            drawPolyline();
         }
 
-        // 刷新坐标列表（可选显示小标签）
-        function refreshMarkersInfo() {
-            // 已经通过overlay管理，不需要额外操作
+        function drawPolyline() {
+            polylines.forEach(function(line) {
+                map.removeOverlay(line);
+            });
+            polylines = [];
+
+            if (points.length >= 2) {
+                var bPoints = points.map(function(p) {
+                    return new BMap.Point(p.lng, p.lat);
+                });
+                var polyline = new BMap.Polyline(bPoints, {
+                    strokeColor: '#01689B',
+                    strokeWeight: 4,
+                    strokeOpacity: 0.8
+                });
+                map.addOverlay(polyline);
+                polylines.push(polyline);
+            }
         }
 
-        // 添加点
+        function createMarkerIcon(index, total) {
+            var div = document.createElement('div');
+            div.className = 'point-marker';
+            if (index === 0) div.classList.add('start');
+            else if (index === total - 1) div.classList.add('end');
+
+            div.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;';
+            div.innerHTML = '<span style="color:white;font-size:14px;font-weight:bold;">' + (index + 1) + '</span>';
+            return div;
+        }
+
         function addPoint(lng, lat) {
             var point = { lng: lng, lat: lat };
             points.push(point);
-            
+
             var bmPoint = new BMap.Point(lng, lat);
-            var marker = new BMap.Marker(bmPoint);
+            var index = markers.length;
+            var icon = new BMap.Icon(
+                createMarkerSVG(index, points.length),
+                new BMap.Size(36, 36),
+                { anchor: new BMap.Size(18, 18) }
+            );
+
+            var marker = new BMap.Marker(bmPoint, { icon: icon });
             map.addOverlay(marker);
             markers.push(marker);
-            
-            // 点击标记删除
-            marker.addEventListener("click", function(e) {
-                var index = markers.indexOf(marker);
-                if (index > -1) {
-                    markers.splice(index, 1);
-                    points.splice(index, 1);
+
+            marker.addEventListener('click', function(e) {
+                var idx = markers.indexOf(marker);
+                if (idx > -1) {
+                    if (points.length <= 2) {
+                        showToast('至少保留2个点位');
+                        return;
+                    }
+                    markers.splice(idx, 1);
+                    points.splice(idx, 1);
                     map.removeOverlay(marker);
+                    refreshMarkerNumbers();
                     updateUI();
                 }
                 e.stopPropagation();
             });
-            
+
             updateUI();
         }
 
-        // 地图点击事件
-        map.addEventListener("click", function(e) {
-            var lng = e.point.lng;
-            var lat = e.point.lat;
-            addPoint(lng, lat);
+        function createMarkerSVG(index, total) {
+            var color = '#01689B';
+            if (index === 0) color = '#10B981';
+            else if (index === total - 1 && total > 1) color = '#E87525';
+
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">' +
+                '<circle cx="18" cy="18" r="16" fill="' + color + '" stroke="white" stroke-width="3"/>' +
+                '<text x="18" y="23" text-anchor="middle" fill="white" font-size="14" font-weight="bold">' + (index + 1) + '</text>' +
+                '</svg>';
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+
+        function refreshMarkerNumbers() {
+            markers.forEach(function(marker, index) {
+                var icon = new BMap.Icon(
+                    createMarkerSVG(index, markers.length),
+                    new BMap.Size(36, 36),
+                    { anchor: new BMap.Size(18, 18) }
+                );
+                marker.setIcon(icon);
+            });
+        }
+
+        map.addEventListener('click', function(e) {
+            addPoint(e.point.lng, e.point.lat);
         });
 
-        // 清空所有点
         function clearAllPoints() {
+            if (points.length === 0) return;
             markers.forEach(function(marker) {
                 map.removeOverlay(marker);
             });
@@ -221,37 +624,46 @@
             updateUI();
         }
 
-        // 保存路线 - 调用Android接口
-        function saveRoute() {
-            var routeName = document.getElementById('routeName').value.trim();
-            if (routeName === "") {
-                alert("请填写路线名称");
-                return;
-            }
-            if (points.length < 2) {
-                alert("请至少采集2个坐标点");
-                return;
-            }
-            
-            // 准备坐标数据
-            var coordArray = points.map(function(p) {
-                return { lng: p.lng, lat: p.lat };
-            });
-            
-            // 调用Android原生接口
-            if (window.AndroidInterface && window.AndroidInterface.onSaveRoute) {
-                window.AndroidInterface.onSaveRoute(routeName, JSON.stringify(coordArray));
+        function zoomIn() {
+            map.zoomIn();
+        }
+
+        function zoomOut() {
+            map.zoomOut();
+        }
+
+        function centerLocation() {
+            if (points.length > 0) {
+                var lastPoint = points[points.length - 1];
+                map.panTo(new BMap.Point(lastPoint.lng, lastPoint.lat));
             } else {
-                alert("Android接口未就绪，请稍后重试");
+                map.panTo(centerPoint);
             }
         }
 
-        // 地图加载完成
-        map.addEventListener("tilesloaded", function() {
-            console.log("地图加载完成");
-        });
+        function saveRoute() {
+            var routeName = document.getElementById('routeName').value.trim();
+            if (routeName === "") {
+                showToast("请填写路线名称");
+                document.getElementById('routeName').focus();
+                return;
+            }
+            if (points.length < 2) {
+                showToast("请至少采集2个坐标点");
+                return;
+            }
 
-        // 暴露给外部调用的方法（可选）
+            var coordArray = points.map(function(p) {
+                return { lng: p.lng, lat: p.lat };
+            });
+
+            if (window.AndroidInterface && window.AndroidInterface.onSaveRoute) {
+                window.AndroidInterface.onSaveRoute(routeName, JSON.stringify(coordArray));
+            } else {
+                showToast("Android接口未就绪，请稍后重试");
+            }
+        }
+
         window.setPointsFromData = function(pointsJson) {
             try {
                 var data = JSON.parse(pointsJson);

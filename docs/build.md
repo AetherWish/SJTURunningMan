@@ -93,14 +93,50 @@ xcodebuild -project apps/ios/SJTURunningMan.xcodeproj -list
 
 ## 鸿蒙
 
-用 **DevEco Studio** 打开 `apps/harmonyos/` 工程，选择合适的签名后构建 HAP。命令行可用 hvigor：
+用 **DevEco Studio** 打开 `apps/harmonyos/` 工程，选择合适的签名后构建 HAP；也可以直接命令行构建：
+
+**Windows**
+
+```powershell
+cd apps/harmonyos
+.\hvigorw assembleHap
+```
+
+**macOS / Linux**
 
 ```bash
 cd apps/harmonyos
-hvigorw assembleHap
+./hvigorw assembleHap
 ```
 
-- Bundle Name `com.sjtu.runner`，版本在 `AppScope/app.json5`；
+工程里提交了 `hvigorw` / `hvigorw.bat` / `hvigorw.js` 包装脚本（与 DevEco Studio 自带的一致，仅 `hvigorw.js` 有一处本地补丁，见下）。脚本会自动找到 DevEco Studio 并推导出 `DEVECO_SDK_HOME` / `NODE_HOME` / `HVIGOR_TOOLS_HOME`：
+
+- Windows（`hvigorw.bat`）：先看 `DEVECO_STUDIO_PATH`，再看 `%ProgramFiles%\Huawei\DevEco Studio` 与 `D:\HUAWEI\DevEco Studio`，最后查注册表 `HKCU/HKLM\Software\Huawei\DevEcoStudio` 与卸载信息里的 `InstallLocation`；
+- macOS / Linux（`hvigorw`）：先看 `DEVECO_STUDIO_PATH`，再依次探测 `/Applications/DevEco-Studio.app/Contents`、`~/Applications/DevEco-Studio.app/Contents`、`/opt/deveco-studio`、`/usr/local/deveco-studio`、`~/deveco-studio`。
+
+若探测不到，可手动指定（路径按本机实际安装位置调整）：
+
+```powershell
+$env:DEVECO_SDK_HOME  = 'D:\HUAWEI\DevEco Studio\sdk'
+$env:NODE_HOME        = 'D:\HUAWEI\DevEco Studio\tools\node'
+$env:HVIGOR_TOOLS_HOME = 'D:\HUAWEI\DevEco Studio\tools\hvigor'
+cd apps/harmonyos
+.\hvigorw assembleHap
+```
+
+> **`hvigorw.js` 的本地补丁**：原始文件位于 DevEco 的 `tools/hvigor/bin/`，它用 `path.resolve(__dirname, "..")` 推断 hvigor 安装目录（即 `tools/hvigor`）。把脚本搬进 `apps/harmonyos/` 后 `..` 会变成 `apps/`，导致包装脚本试图把不存在的 `apps/hvigor` 链进工程缓存并报 `EEXIST` / 生成空占位目录。补丁让该表达式优先使用 `HVIGOR_TOOLS_HOME`（变量存在且目录真实存在时才采用），否则**逐字节回落到原表达式**，因此其它安装布局、macOS 与 Linux 不受影响。升级 DevEco Studio 后需重新拷贝该文件并重新打这一处补丁（搜索 `HVIGOR_TOOLS_HOME` 即可定位）。
+
+完全不走包装脚本时，仍可直接调用 DevEco 自带的 hvigor：
+
+```powershell
+$env:DEVECO_SDK_HOME = 'D:\HUAWEI\DevEco Studio\sdk'
+& 'D:\HUAWEI\DevEco Studio\tools\node\node.exe' `
+  'D:\HUAWEI\DevEco Studio\tools\hvigor\bin\hvigorw.js' `
+  --mode module -p product=default assembleHap --no-daemon
+```
+
+- Bundle Name `com.sjtu.runner`，版本在 `AppScope/app.json5`（`versionName` 与安卓端保持一致）；
+- 产物在 `entry/build/default/outputs/default/`；
 - 未做开发者认证时，调试证书有效期很短，安装前请先完成认证（见 [harmonyos.md](./harmonyos.md#1-安装-hap-包)）。
 
 ---

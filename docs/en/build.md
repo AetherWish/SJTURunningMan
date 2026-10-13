@@ -95,9 +95,44 @@ xcodebuild -project apps/ios/SJTURunningMan.xcodeproj -list
 
 Open `apps/harmonyos/` in **DevEco Studio**, pick a signing profile and build the HAP. From the command line:
 
+**Windows**
+
+```powershell
+cd apps/harmonyos
+.\hvigorw assembleHap
+```
+
+**macOS / Linux**
+
 ```bash
 cd apps/harmonyos
-hvigorw assembleHap
+./hvigorw assembleHap
+```
+
+The repository ships the `hvigorw` / `hvigorw.bat` / `hvigorw.js` wrapper scripts (identical to the ones bundled with DevEco Studio, except for one local patch to `hvigorw.js` — see below). The wrapper locates DevEco Studio and derives `DEVECO_SDK_HOME` / `NODE_HOME` / `HVIGOR_TOOLS_HOME` from it:
+
+- Windows (`hvigorw.bat`): `DEVECO_STUDIO_PATH`, then `%ProgramFiles%\Huawei\DevEco Studio` and `D:\HUAWEI\DevEco Studio`, then the registry (`HKCU/HKLM\Software\Huawei\DevEcoStudio` and the `InstallLocation` under the uninstall keys);
+- macOS / Linux (`hvigorw`): `DEVECO_STUDIO_PATH`, then `/Applications/DevEco-Studio.app/Contents`, `~/Applications/DevEco-Studio.app/Contents`, `/opt/deveco-studio`, `/usr/local/deveco-studio`, `~/deveco-studio`.
+
+If none of those are found, set them by hand (adjust to your install location):
+
+```powershell
+$env:DEVECO_SDK_HOME   = 'D:\HUAWEI\DevEco Studio\sdk'
+$env:NODE_HOME         = 'D:\HUAWEI\DevEco Studio\tools\node'
+$env:HVIGOR_TOOLS_HOME = 'D:\HUAWEI\DevEco Studio\tools\hvigor'
+cd apps/harmonyos
+.\hvigorw assembleHap
+```
+
+> **Local patch to `hvigorw.js`**: the original lives in DevEco's `tools/hvigor/bin/` and infers the hvigor install directory with `path.resolve(__dirname, "..")` (i.e. `tools/hvigor`). Copied into `apps/harmonyos/`, `..` becomes `apps/`, so the wrapper tries to link a non-existent `apps/hvigor` into its project cache and fails with `EEXIST` / empty placeholder directories. The patch makes that expression prefer `HVIGOR_TOOLS_HOME` (only when the variable is set and the directory exists) and otherwise fall back **byte-for-byte** to the original expression, so other install layouts, macOS and Linux are unaffected. After upgrading DevEco Studio, re-copy the file and re-apply the single change (search for `HVIGOR_TOOLS_HOME`).
+
+To bypass the wrapper entirely, call DevEco's bundled hvigor directly:
+
+```powershell
+$env:DEVECO_SDK_HOME = 'D:\HUAWEI\DevEco Studio\sdk'
+& 'D:\HUAWEI\DevEco Studio\tools\node\node.exe' `
+  'D:\HUAWEI\DevEco Studio\tools\hvigor\bin\hvigorw.js' `
+  --mode module -p product=default assembleHap --no-daemon
 ```
 
 - Bundle name `com.sjtu.runner`; version in `AppScope/app.json5`.

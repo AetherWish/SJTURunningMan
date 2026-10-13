@@ -4,13 +4,29 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { PayloadItem } from '../model/PayloadModels';
 import { UploadResult } from '../model/PayloadModels';
 import { CookieService } from './CookieService';
+import { PointRules } from '../viewmodel/TaskModels';
+import { AppConfig } from '../config/AppConfig';
 
 /**
  * 网络服务
  * 迁移自 Android: com.sjtu.runner.network.ApiService（OkHttp + WebViewCookieJar -> @ohos.net.http + WebCookieManager）
+ * 差异：ArkTS 无 OkHttp CookieJar，Cookie 显式从 webview.WebCookieManager 读取并写入请求头。
  */
 export class ApiService {
   private static readonly TAG: string = 'ApiService';
+
+  /** 任务中心内嵌 WebView 的 UA（Android APP_USER_AGENT 原样） */
+  private static readonly APP_USER_AGENT: string =
+    'Mozilla/5.0 (Linux; Android 12; SM-S9080 Build/V417IR; wv) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.67 Safari/537.36 TaskCenterApp/3.5.0';
+
+  /** 桌面浏览器 UA（Android WEB_USER_AGENT 原样） */
+  private static readonly WEB_USER_AGENT: string =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+
+  /** 默认跑步规则（等价 Android PointRules(id = 9, spmin = 180, spmax = 540)） */
+  private static readonly DEFAULT_POINT_RULES: PointRules = new PointRules(9, 180, 540);
 
   /** 精准判断是否为 jAccount 登录页（仅登录页才触发重新登录），逻辑与 Android 版一致 */
   private static isJAccountLoginPage(content: string): boolean {
@@ -21,9 +37,14 @@ export class ApiService {
       content.includes('统一身份认证');
   }
 
-  /** 纯文本校验：仅字母数字（等价 Regex("[a-zA-Z0-9]+") 全匹配） */
-  private static isAlphanumeric(text: string): boolean {
-    return /^[a-zA-Z0-9]+$/.test(text);
+  /**
+   * UID 形态校验：等价 Android ApiService.looksLikeUid()
+   * find(Regex("[a-zA-Z0-9_-]{4,}")) —— 至少 4 位，允许字母、数字、下划线与连字符。
+   * （旧实现为 /^[a-zA-Z0-9]+$/，会接受 1-3 位假 UID、拒绝含 _ / - 的真实 UID，
+   *   与 Android 行为相反，2026-10 评审 M3 修正。）
+   */
+  private static looksLikeUid(text: string): boolean {
+    return /[a-zA-Z0-9_-]{4,}/.test(text);
   }
 
   /** 判断 JSON 值是否等价于 Kotlin map["code"] == 0.0 */
@@ -95,7 +116,7 @@ export class ApiService {
       } else if (typeof parsed === 'string') {
         const uidString = parsed as string;
         hilog.info(0x0000, ApiService.TAG, 'API returned raw string: %{public}s', uidString);
-        if (uidString.length > 0 && ApiService.isAlphanumeric(uidString.trim())) {
+        if (uidString.length > 0 && ApiService.looksLikeUid(uidString.trim())) {
           return uidString.trim();
         }
         return null;
@@ -103,7 +124,7 @@ export class ApiService {
         hilog.info(0x0000, ApiService.TAG, 'Not valid JSON. Response might be HTML/plain text: %{public}s...',
           body.substring(0, Math.min(200, body.length)));
         const trimmedBody = body.trim();
-        if (ApiService.isAlphanumeric(trimmedBody)) {
+        if (ApiService.looksLikeUid(trimmedBody)) {
           return trimmedBody;
         }
         return null;
@@ -114,6 +135,148 @@ export class ApiService {
       return null;
     } finally {
       req.destroy();
+    }
+  }
+
+  /** 把 JSON 字段读取为 int（等价 Gson 的 JsonPrimitive.asInt），非法时返回 fallback */
+  private static readInt(value: Object | undefined, fallback: number): number {
+    if (typeof value === 'number') {
+      // 不依赖 Math.trunc：数字统一走 parseInt(String(n))，截断语义一致且构造最保守
+      const parsed = parseInt(String(value as number));
+      return isNaN(parsed) ? fallback : parsed;
+    }
+    if (typeof value === 'string') {
+      const parsed = parseInt(value as string);
+      return isNaN(parsed) ? fallback : parsed;
+    }
+    return fallback;
+  }
+
+  /**
+   * 异常 -> 可读文案。
+   * catch 到的值不做 BusinessError 断言，统一按 Record 逐字段 typeof 校验，
+   * 保证非 BusinessError（普通 Error / 任意抛出值）也能安全取到 message。
+   */
+  private static describeError(e: Object): string {
+    if (typeof e !== 'object' || e === null) {
+      return '未知错误';
+    }
+    const fields = e as Record<string, Object>;
+    const messageVal = fields['message'];
+    if (typeof messageVal === 'string') {
+      const message = messageVal as string;
+      if (message.length > 0) {
+        return message;
+      }
+    }
+    return '未知错误';
+  }
+
+  /**
+   * 拉取跑步打卡规则（配速上下限、run id），失败时返回默认规则。
+   * 迁移自 ApiService.getPointRules(): 先预热个人数据接口，再请求 point-rule。
+   * 差异：OkHttp 的 connect/read 超时改用 http.request 的 connectTimeout/readTimeout，
+   *       URLEncoder.encode(s, "UTF-8") 改用 encodeURIComponent（逗号同样编码为 %2C）。
+   */
+  async getPointRules(authToken: string, longitude: number, latitude: number): Promise<PointRules> {
+    const defaultRules = ApiService.DEFAULT_POINT_RULES;
+    const cookie = CookieService.getCookie(`https://${AppConfig.HOST}`);
+    try {
+      // 预热一次个人数据接口，失败不影响后续
+      const warmUpHeader: Record<string, string> = {
+        'User-Agent': ApiService.APP_USER_AGENT,
+        'Accept': 'application/json, text/plain, */*',
+        'Authorization': authToken
+      };
+      if (cookie.length > 0) {
+        warmUpHeader['Cookie'] = cookie;
+      }
+      const warmUpReq = http.createHttp();
+      try {
+        await warmUpReq.request(AppConfig.MY_DATA_URL, {
+          method: http.RequestMethod.GET,
+          header: warmUpHeader,
+          expectDataType: http.HttpDataType.STRING,
+          usingCache: false,
+          connectTimeout: 15000,
+          readTimeout: 20000
+        });
+      } catch (e) {
+        // 预热失败忽略，不写日志（与 Android runCatching 一致）
+      } finally {
+        warmUpReq.destroy();
+      }
+
+      const location = `${longitude.toFixed(14)},${latitude.toFixed(14)}`;
+      const encodedLocation = encodeURIComponent(location);
+      const ruleUrl = `${AppConfig.POINT_RULE_URL}?location=${encodedLocation}`;
+
+      const header: Record<string, string> = {
+        'User-Agent': ApiService.WEB_USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Authorization': authToken,
+        'Cache-Control': 'no-cache',
+        'Referer': ruleUrl
+      };
+      if (cookie.length > 0) {
+        header['Cookie'] = cookie;
+      }
+
+      const req = http.createHttp();
+      try {
+        const resp = await req.request(ruleUrl, {
+          method: http.RequestMethod.GET,
+          header: header,
+          expectDataType: http.HttpDataType.STRING,
+          usingCache: false,
+          connectTimeout: 15000,
+          readTimeout: 20000
+        });
+        const body = resp.result as string;
+        if (resp.responseCode < 200 || resp.responseCode >= 300) {
+          hilog.warn(0x0000, ApiService.TAG, 'getPointRules: HTTP %{public}d', resp.responseCode);
+          return defaultRules;
+        }
+        // 与 getUid 一致的登录页判断：命中即视为 cookie 过期
+        if (ApiService.isJAccountLoginPage(body)) {
+          hilog.warn(0x0000, ApiService.TAG, 'getPointRules: 返回登录页，使用默认规则');
+          return defaultRules;
+        }
+
+        let element: Object | null = null;
+        try {
+          element = JSON.parse(body) as Object;
+        } catch (e) {
+          element = null;
+        }
+        if (typeof element !== 'object' || element === null || Array.isArray(element)) {
+          return defaultRules;
+        }
+        const root = element as Record<string, Object>;
+        const dataVal = root['data'];
+        if (typeof dataVal !== 'object' || dataVal === null || Array.isArray(dataVal)) {
+          return defaultRules;
+        }
+        const data = dataVal as Record<string, Object>;
+        const rulesVal = data['rules'];
+        if (typeof rulesVal !== 'object' || rulesVal === null || Array.isArray(rulesVal)) {
+          return defaultRules;
+        }
+        const rules = rulesVal as Record<string, Object>;
+
+        const id = ApiService.readInt(rules['id'], 6);
+        const spmin = ApiService.readInt(rules['spmin'], 180);
+        const spmax = ApiService.readInt(rules['spmax'], 540);
+        return new PointRules(id === 6 ? 9 : id, spmin, spmax);
+      } finally {
+        req.destroy();
+      }
+    } catch (e) {
+      // 不做 BusinessError 断言，统一按 Object 读取 message
+      const err = e as Object;
+      hilog.warn(0x0000, ApiService.TAG, 'getPointRules 失败，使用默认规则: %{public}s',
+        ApiService.describeError(err));
+      return defaultRules;
     }
   }
 

@@ -1,9 +1,15 @@
 import { promptAction } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import { common } from '@kit.AbilityKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { HdsNavDestination } from '@kit.UIDesignKit';
 import { CookieService } from '../service/CookieService';
 import { MainViewModel } from '../viewmodel/MainViewModel';
+import { LogLevel } from '../viewmodel/TaskModels';
+
+/** 日志域与标签（与工程其它文件一致） */
+const DOMAIN: number = 0x0000;
+const TAG: string = 'LoginPage';
 
 /** jAccount OAuth 登录地址（与 Android LoginActivity 保持一致） */
 const LOGIN_URL: string = 'https://jaccount.sjtu.edu.cn/oauth2/authorize' +
@@ -61,8 +67,15 @@ export struct LoginPage {
   private openJwbLogin(url: string): void {
     const context = getContext(this) as common.UIAbilityContext;
     try {
-      context.openLink(url);
-      promptAction.showToast({ message: '已跳转交我办，请完成登录后返回', duration: 2000 });
+      // openLink 返回 Promise（16000001 表示目标应用不存在），失败要走 catch 分支
+      context.openLink(url)
+        .then(() => {
+          promptAction.showToast({ message: '已跳转交我办，请完成登录后返回', duration: 2000 });
+        })
+        .catch((err: Object) => {
+          hilog.warn(DOMAIN, TAG, '唤起交我办失败: %{public}s', JSON.stringify(err));
+          promptAction.showToast({ message: '未找到交我办，留在网页登录', duration: 2500 });
+        });
     } catch (e) {
       promptAction.showToast({ message: '未找到交我办，留在网页登录', duration: 2500 });
     }
@@ -71,7 +84,7 @@ export struct LoginPage {
   /** 登录完成：刷新登录态并返回上一页（等价 setResult(RESULT_OK) + finish()） */
   private finishLogin(): void {
     const viewModel = MainViewModel.getInstance();
-    viewModel.logMsg('重新登录成功，重新加载界面...');
+    viewModel.logMsg(LogLevel.SUCCESS, '重新登录成功，重新加载界面...');
     viewModel.refreshLoginState();
     this.navStack.pop();
   }

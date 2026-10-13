@@ -1,54 +1,250 @@
+import { promptAction } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { HdsNavDestination } from '@kit.UIDesignKit';
 import { ImmersiveMaterialHelper } from '../common/ImmersiveMaterialHelper';
+import { AppConfig } from '../config/AppConfig';
+import { UpdateChecker, UpdateResult, UpdateResultKind, ReleaseInfo } from '../service/UpdateChecker';
 
 /**
  * 关于页（二级页，挂载于 Index 的 HdsNavigation 导航栈）
- * 迁移自 Android: com.sjtu.runner.about.AboutActivity
- * - 自绘顶栏/返回键 -> HdsNavDestination 原生标题栏与系统返回控件
+ * 迁移自 Android: com.sjtu.runner.ui.components.AboutDialog
+ * - Android 的 TopAppBar action 弹窗 -> HdsNavDestination 二级页（ArkUI 导航栏无 action 槽位）
+ * - 内容一致：版本徽标 / 免责声明 / 署名 / 检查更新 / 仓库、水源、下载链接
  */
 @Component
 export struct AboutPage {
   /** 沉浸光感材质：Logo 卡片（小面积局部容器）；运行时不支持时为 undefined，组件自动降级为普通样式 */
   private logoCardMaterial = ImmersiveMaterialHelper.regular();
+  /** 是否正在检查更新 */
+  @State checking: boolean = false;
+  /** 检查更新结果 */
+  @State result: UpdateResult | undefined = undefined;
+
+  /** 检查更新（等价 AboutDialog 的 "检查更新" 按钮） */
+  private async checkUpdate(): Promise<void> {
+    if (this.checking) {
+      return;
+    }
+    this.checking = true;
+    try {
+      this.result = await UpdateChecker.checkForUpdates(AppConfig.VERSION_NAME);
+    } finally {
+      this.checking = false;
+    }
+  }
+
+  /** 用系统能力打开外部链接（等价 Android Intent.ACTION_VIEW） */
+  private openUrl(url: string): void {
+    if (url.length === 0) {
+      return;
+    }
+    const context = getContext(this) as common.UIAbilityContext;
+    try {
+      context.openLink(url).catch((err: Error) => {
+        promptAction.showToast({ message: `无法打开链接: ${err.message}`, duration: 2000 });
+      });
+    } catch (e) {
+      promptAction.showToast({ message: `无法打开链接: ${(e as Error).message}`, duration: 2000 });
+    }
+  }
+
+  /** 检查更新结果文案 */
+  private resultText(): string {
+    const result = this.result;
+    if (result === undefined) {
+      return '';
+    }
+    if (result.kind === UpdateResultKind.UP_TO_DATE) {
+      return `已是最新版本 ${result.latestTag}`;
+    }
+    if (result.kind === UpdateResultKind.UPDATE_AVAILABLE) {
+      return `发现新版本 ${result.latestTag}`;
+    }
+    return `检查更新失败：${result.reason}`;
+  }
+
+  private resultColor(): Resource {
+    const result = this.result;
+    if (result !== undefined && result.kind === UpdateResultKind.UPDATE_AVAILABLE) {
+      return $r('app.color.success_color');
+    }
+    if (result !== undefined && result.kind === UpdateResultKind.FAILED) {
+      return $r('app.color.error_color');
+    }
+    // 已是最新版本（等价 Android LocalAppColors.current.success）
+    return $r('app.color.success_color');
+  }
+
+  private hasUpdate(): boolean {
+    const result = this.result;
+    return result !== undefined && result.kind === UpdateResultKind.UPDATE_AVAILABLE && result.latest !== null;
+  }
+
+  @Builder
+  LinkButton(label: string, url: string) {
+    Button() {
+      Row({ space: 6 }) {
+        Text(label)
+          .fontSize(14)
+          .fontColor($r('app.color.brand_primary'))
+      }
+    }
+    .height(40)
+    .borderRadius(20)
+    .backgroundColor(Color.Transparent)
+    .border({ width: 1, color: $r('app.color.outline_variant') })
+    .padding({ left: 14, right: 14 })
+    .onClick(() => {
+      this.openUrl(url);
+    })
+  }
 
   build() {
     HdsNavDestination() {
-      Column() {
+      Scroll() {
         Column({ space: 16 }) {
-          // Logo 卡片
-          Column() {
-            Image($r('app.media.app_icon'))
-              .width(120)
-              .height(120)
-              .borderRadius(16)
-              .objectFit(ImageFit.Cover)
+          // ===== 头部：Logo + 名称 + 版本徽标 =====
+          Column({ space: 12 }) {
+            Column() {
+              Image($r('app.media.app_icon'))
+                .width(96)
+                .height(96)
+                .borderRadius(16)
+                .objectFit(ImageFit.Cover)
+            }
+            .width(96)
+            .height(96)
+            .borderRadius(16)
+            // 沉浸光感：Logo 卡片开启常规材质
+            .systemMaterial(this.logoCardMaterial)
+
+            Row({ space: 8 }) {
+              Text('交我润')
+                .fontSize(22)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.text_primary'))
+              Text(`v${AppConfig.VERSION_NAME}`)
+                .fontSize(12)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.brand_on_primary_container'))
+                .backgroundColor($r('app.color.brand_primary_container'))
+                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                .borderRadius(8)
+            }
+            .alignItems(VerticalAlign.Center)
           }
-          .width(120)
-          .height(120)
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+
+          // ===== 免责声明 =====
+          Column({ space: 8 }) {
+            Text(AppConfig.DISCLAIMER_TEXT)
+              .fontSize(12)
+              .lineHeight(18)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+          }
+          .width('100%')
+          .padding(16)
           .borderRadius(16)
-          // 沉浸光感：Logo 卡片开启常规材质
-          .systemMaterial(this.logoCardMaterial)
+          .backgroundColor($r('app.color.card_surface'))
+          .border({ width: 1, color: $r('app.color.outline_variant') })
+          .alignItems(HorizontalAlign.Start)
 
-          Text('交我润')
-            .fontSize(22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
+          // ===== 署名 =====
+          Column({ space: 8 }) {
+            Text('项目信息')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_primary'))
+            Text(AppConfig.CREDITS)
+              .fontSize(12)
+              .lineHeight(20)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+          }
+          .width('100%')
+          .padding(16)
+          .borderRadius(16)
+          .backgroundColor($r('app.color.card_surface'))
+          .border({ width: 1, color: $r('app.color.outline_variant') })
+          .alignItems(HorizontalAlign.Start)
 
-          Text('本应用用于学习和研究用途，演示运动数据生成与上传的流程。请遵守学校与平台的使用规范。')
-            .fontSize(14)
+          // ===== 检查更新 =====
+          Column({ space: 12 }) {
+            Row({ space: 10 }) {
+              Text('版本更新')
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.text_primary'))
+                .layoutWeight(1)
+              Button() {
+                Row({ space: 6 }) {
+                  if (this.checking) {
+                    LoadingProgress()
+                      .width(16)
+                      .height(16)
+                      .color($r('app.color.brand_primary'))
+                  }
+                  Text(this.checking ? '检查中…' : '检查更新')
+                    .fontSize(14)
+                    .fontColor($r('app.color.brand_primary'))
+                }
+              }
+              .height(36)
+              .borderRadius(18)
+              .backgroundColor(Color.Transparent)
+              .border({ width: 1, color: $r('app.color.brand_primary') })
+              .padding({ left: 14, right: 14 })
+              .enabled(!this.checking)
+              .onClick(() => {
+                this.checkUpdate();
+              })
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+
+            if (this.result !== undefined) {
+              Text(this.resultText())
+                .fontSize(12)
+                .fontColor(this.resultColor())
+                .width('100%')
+            }
+          }
+          .width('100%')
+          .padding(16)
+          .borderRadius(16)
+          .backgroundColor($r('app.color.card_surface'))
+          .border({ width: 1, color: $r('app.color.outline_variant') })
+          .alignItems(HorizontalAlign.Start)
+
+          // ===== 链接 =====
+          Row({ space: 10 }) {
+            this.LinkButton('仓库', AppConfig.GITHUB_REPO_URL)
+            this.LinkButton('水源', AppConfig.SHUIYUAN_TOPIC_URL)
+            if (this.hasUpdate()) {
+              this.LinkButton('下载', this.downloadUrl())
+            }
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+
+          Text('本项目仅供学习、研究和技术测试，请勿用于伪造运动数据或规避体育锻炼要求。')
+            .fontSize(12)
+            .lineHeight(18)
             .fontColor($r('app.color.text_secondary'))
             .textAlign(TextAlign.Center)
-            .lineHeight(22)
+            .width('100%')
+            .padding({ left: 8, right: 8 })
         }
         .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .padding({ left: 24, right: 24, bottom: 24 })
+        .padding({ left: 16, right: 16, top: 16, bottom: 32 })
       }
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Off)
       .width('100%')
       .height('100%')
-      .backgroundColor($r('app.color.page_background'))
+      .align(Alignment.Top)
     }
     .titleBar({
       content: {
@@ -57,5 +253,16 @@ export struct AboutPage {
         }
       }
     })
+    .backgroundColor($r('app.color.page_background'))
+  }
+
+  /** 最新版本的下载地址（缺省回落仓库 releases 页） */
+  private downloadUrl(): string {
+    const result = this.result;
+    if (result === undefined || result.latest === null) {
+      return `${AppConfig.GITHUB_REPO_URL}/releases`;
+    }
+    const latest: ReleaseInfo = result.latest;
+    return latest.url.length > 0 ? latest.url : `${AppConfig.GITHUB_REPO_URL}/releases`;
   }
 }

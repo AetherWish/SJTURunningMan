@@ -4,6 +4,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit';
 import { GpsPoint } from '../model/RouteInfo';
 import { RouteManager } from '../service/RouteManager';
 import { MainViewModel } from '../viewmodel/MainViewModel';
+import { LogLevel } from '../viewmodel/TaskModels';
 
 /**
  * 路线设计页（二级页，挂载于 Index 的 HdsNavigation 导航栈）
@@ -79,7 +80,7 @@ export struct RouteDesignPage {
           duration: 2500
         });
         // 等价 setResult(RESULT_OK, intent.putExtra(EXTRA_ROUTE_SAVED, true)) + finish()
-        this.viewModel.logMsg('新路线已创建，刷新列表');
+        this.viewModel.logMsg(LogLevel.SUCCESS, '新路线已创建，刷新列表');
         this.viewModel.refreshRoutes();
         this.navStack.pop();
       } else {

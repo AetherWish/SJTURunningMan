@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+
+# ----------------------------------------------------------------------------
+#  Hvigor startup script, version 1.0.0
+#
+#  Required ENV vars:
+#  ------------------
+#    NODE_HOME - location of a Node home dir
+#    or
+#    Add /usr/local/nodejs/bin to the PATH environment variable
+# ----------------------------------------------------------------------------
+
+HVIGOR_APP_HOME="$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")"
+HVIGOR_WRAPPER_SCRIPT=${HVIGOR_APP_HOME}/hvigorw.js
+#NODE_OPTS="--max-old-space-size=8192  --expose-gc"
+
+warn() {
+	echo ""
+	echo -e "\033[1;33m`date '+[%Y-%m-%d %H:%M:%S]'`$@\033[0m"
+}
+
+error() {
+	echo ""
+	echo -e "\033[1;31m`date '+[%Y-%m-%d %H:%M:%S]'`$@\033[0m"
+}
+
+fail() {
+	error "$@"
+	exit 1
+}
+
+# ----------------------------------------------------------------------------
+#  Locate DevEco Studio so this wrapper works outside the IDE (macOS / Linux).
+#  The IDE normally injects these variables; when they are missing we derive
+#  them from the installed toolchain.
+#  HVIGOR_TOOLS_HOME matters because the bundled hvigorw.js resolves the hvigor
+#  install directory as "$(dirname hvigorw.js)/.." when it is unset, which is
+#  wrong when this wrapper lives in apps/harmonyos/ instead of DevEco's
+#  tools/hvigor/bin/ - see docs/build.md.
+# ----------------------------------------------------------------------------
+DEVECO_CANDIDATES="
+/Applications/DevEco-Studio.app/Contents
+$HOME/Applications/DevEco-Studio.app/Contents
+/opt/deveco-studio
+/usr/local/deveco-studio
+$HOME/deveco-studio
+"
+
+if [ -z "${DEVECO_SDK_HOME}" ] && [ -n "${DEVECO_STUDIO_PATH}" ] && [ -d "${DEVECO_STUDIO_PATH}/sdk" ]; then
+	DEVECO_SDK_HOME="${DEVECO_STUDIO_PATH}/sdk"
+fi
+
+if [ -z "${DEVECO_SDK_HOME}" ]; then
+	for _candidate in ${DEVECO_CANDIDATES}; do
+		if [ -d "${_candidate}/sdk" ]; then
+			DEVECO_SDK_HOME="${_candidate}/sdk"
+			break
+		fi
+	done
+fi
+unset _candidate 2>/dev/null || true
+
+if [ -z "${DEVECO_SDK_HOME}" ]; then
+	warn "WARN: DevEco Studio was not found; set DEVECO_SDK_HOME to its \"sdk\" directory."
+fi
+if [ -n "${DEVECO_SDK_HOME}" ]; then
+	if [ -z "${NODE_HOME}" ] && [ -x "${DEVECO_SDK_HOME}/../tools/node/bin/node" ]; then
+		NODE_HOME="${DEVECO_SDK_HOME}/../tools/node"
+	fi
+	if [ -z "${HVIGOR_TOOLS_HOME}" ] && [ -d "${DEVECO_SDK_HOME}/../tools/hvigor/hvigor" ]; then
+		HVIGOR_TOOLS_HOME="${DEVECO_SDK_HOME}/../tools/hvigor"
+	fi
+fi
+
+# Determine node to start hvigor wrapper script
+if [ -n "${NODE_HOME}" ];then
+   # unix path
+   if [ -x "${NODE_HOME}/bin/node" ];then
+      EXECUTABLE_NODE="${NODE_HOME}/bin/node"
+   # windows path
+   elif [ -x "${NODE_HOME}/node.exe" ];then
+      EXECUTABLE_NODE="${NODE_HOME}/node.exe"
+   else
+      fail "ERROR: NODE_HOME is set to an invalid directory,check $NODE_HOME\n\nPlease set NODE_HOME in your environment to the location where your nodejs installed"
+   fi
+else
+   EXECUTABLE_NODE="node"
+   which ${EXECUTABLE_NODE} > /dev/null 2>&1 || fail "ERROR: NODE_HOME is not set and not 'node' command found in your path"
+fi
+
+# Check hvigor wrapper script
+if [ ! -r "$HVIGOR_WRAPPER_SCRIPT" ];then
+	fail "ERROR: Couldn't find hvigorw.js in ${HVIGOR_APP_HOME}"
+fi
+
+if [ -z "${NODE_OPTS}" ]; then
+  NODE_OPTS="--"
+fi
+
+# start hvigor-wrapper script
+exec "${EXECUTABLE_NODE}" "${NODE_OPTS}" \
+	"${HVIGOR_WRAPPER_SCRIPT}" "$@"
