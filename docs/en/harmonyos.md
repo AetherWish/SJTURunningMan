@@ -16,6 +16,7 @@ Version **`4.5.0`**, bundle name `com.sjtu.runner` (`apps/harmonyos/AppScope/app
 - [6. Permissions](#6-permissions)
 - [7. Differences from other platforms](#7-differences-from-other-platforms)
 - [8. Known ArkTS toolchain traps](#8-known-arkts-toolchain-traps)
+- [9. Route length and preview limits](#9-route-length-and-preview-limits)
 
 ## 1. Installing the HAP
 
@@ -117,3 +118,22 @@ DistanceSliderBuilder() {
 > To verify: after building, inspect the intermediate `.ts` files under
 > `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` and confirm the component became
 > `new Foo(this, {...})`. A bare `Foo({...})` call there will always crash.
+
+## 9. Route length and preview limits
+
+Tracks are interpolated offline from the selected route: neighbouring coordinates are densified to the target
+step, then the whole path is repeated enough times to cover the target distance
+(`completeLoops = target distance / single-loop length`).
+
+So **a route must not be too short**. If you tap almost the same spot over and over, or end on two points only
+centimetres apart, the single loop may be a few centimetres long; covering 1–5 km then needs hundreds of
+thousands of loops and the track grows to millions of points, exhausting memory. HarmonyOS caps both the
+densified path and the expansion (`MAX_EXPANSION_POINTS`, 100 000 points, in
+`apps/harmonyos/entry/src/main/ets/service/DataGenerator.ets`), so instead of crashing it reports:
+
+- the log pane shows "预览失败: 路线过短（单圈仅 x.xx m）…请重新设计路线或选择其他路线";
+- design a route whose single-loop length is close to the target distance, or use the built-in
+  "思源湖路线" (single loop ≈ 871 m).
+
+> The same defect exists on Android (identical algorithm and path repetition); HarmonyOS only intercepts it
+> early to protect runtime memory.

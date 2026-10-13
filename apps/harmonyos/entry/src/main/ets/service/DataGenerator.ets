@@ -30,6 +30,15 @@ export class DataGenerator {
   private static readonly TRACK_POINT_DECIMAL_PLACES: number = 7;
   /** 单个轨迹段最少点数 */
   private static readonly MIN_SEGMENT_POINTS: number = 5;
+  /**
+   * 路径扩增上限（点数）。
+   * 环路/往返策略按 completeLoops = target / singleLoop 复制整条路径：
+   * 若路线过短（两点几乎重合，singleLoop 只有几厘米甚至更小），圈数可达数十万，
+   * 每次循环都 push 一次 detailed，数组会被撑爆并触发 OutOfMemoryError（真机闪退）。
+   * 正常路线（内置路线 singleLoop ≈ 871m、目标 ≤ 5km）最多几百点，远低于该上限；
+   * 100km/1km 这类极端但结构正常的路线约 11 万点，会命中提示而不是闪退。
+   */
+  private static readonly MAX_EXPANSION_POINTS: number = 100000;
 
   private static readonly DEFAULT_RULES: PointRules = new PointRules(9, 180, 540);
 
@@ -240,11 +249,32 @@ export class DataGenerator {
       detailed.push(original[i + 1]);
     }
 
+    // 1.5 扩增上限保护：加密后点数过多时直接拒绝。
+    // 路线两点几乎重合（单段不足一个步长）或跨度过大时，detailed 本身就可能上百万点，
+    // 继续下游会直接 OutOfMemoryError 杀进程（安卓端同样存在该缺陷，此处刻意加保护）。
+    if (detailed.length > DataGenerator.MAX_EXPANSION_POINTS) {
+      throw new Error(
+        `路线点间距过小：按 ${DataGenerator.fmt2(interval)}m 加密后需要 ${detailed.length} 个点，` +
+        `请重新设计路线或选择其他路线`);
+    }
+
     const singleLoop = DataGenerator.routeDistance(detailed);
     const startEndDistance = (detailed.length >= 2)
       ? GpsUtil.haversineDistance(detailed[0].lat, detailed[0].lon,
         detailed[detailed.length - 1].lat, detailed[detailed.length - 1].lon)
       : 0.0;
+
+    // 1.6 环路/往返按整条路径复制：先估算最终点数，避免 completeLoops 达数十万时撑爆数组。
+    const estimatedPoints = (singleLoop > 0.0)
+      ? (Math.trunc(compensatedTarget / singleLoop) + 1) * detailed.length
+      : detailed.length;
+    log(LogLevel.INFO,
+      `路径加密后 ${detailed.length} 个点，单圈 ${DataGenerator.fmt2(singleLoop)}m，预计扩增后约 ${estimatedPoints} 个点`);
+    if (estimatedPoints > DataGenerator.MAX_EXPANSION_POINTS) {
+      throw new Error(
+        `路线过短（单圈仅 ${DataGenerator.fmt2(singleLoop)}m），扩展到 ${DataGenerator.fmt2(targetDistanceM / 1000.0)}km ` +
+        `需要约 ${estimatedPoints} 个轨迹点，请重新设计路线或选择其他路线`);
+    }
 
     if (singleLoop > compensatedTarget) {
       log(LogLevel.WARN,
@@ -269,6 +299,12 @@ export class DataGenerator {
     const count = Math.trunc(total / interval);
     if (count <= 0) {
       return result;
+    }
+    // 单段插值同样要设上限：两点跨度过大时 count 可达上百万，先分配数组就会 OOM。
+    // 正常跑步路线（相邻点几十米）count 为个位数到几十。
+    if (count > DataGenerator.MAX_EXPANSION_POINTS) {
+      throw new Error(
+        `路线相邻点间距过大（${DataGenerator.fmt2(total)}m），按步长加密后单段需要 ${count} 个点，请检查路线坐标`);
     }
     for (let i = 1; i <= count; i++) {
       const f = i / (count + 1);
