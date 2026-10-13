@@ -30,14 +30,14 @@ Version **`4.5.0`**, bundle name `com.sjtu.runner` (`apps/harmonyos/AppScope/app
 ## 2. Login
 
 1. On first launch a **commitment notice** appears; tick the box and tap "我承诺，进入软件". Tapping "退出" terminates the app. Acceptance is stored in `app_prefs/commitment_accepted` and the notice is not shown again.
-2. Open the **Account** tab and tap **JAccount 账号** to reach the login page.
+2. Tap the **account icon in the top-right corner of the title bar** to reach the login page (it reads "登录" when signed out and "账号" when signed in; tapping it while signed in asks whether to sign out).
 3. The page returns automatically when loading finishes; the status card then reads "已登录". If the cookie expires the app re-opens the login page.
 
 > ⚠️ HarmonyOS **cannot** launch the one-tap "交我办" login — web login only. If "交我办" is installed the login page tries to launch it; otherwise it tells you and stays on the web page.
 
 ## 3. Parameters
 
-The "开润" tab shows the status card, the route card, the task settings cards and the run log, from top to bottom.
+The main screen has **no bottom tab bar**: the title ("开润") sits on the same row as the **account** and **about** icon buttons in the top-right corner (`HdsNavigation` MINI title mode). The "开润" page shows the status card, the route card, the task settings cards and the run log, from top to bottom.
 
 | Parameter | Range | Default | Notes |
 | --- | --- | --- | --- |
@@ -137,3 +137,15 @@ densified path and the expansion (`MAX_EXPANSION_POINTS`, 100 000 points, in
 
 > The same defect exists on Android (identical algorithm and path repetition); HarmonyOS only intercepts it
 > early to protect runtime memory.
+
+Before entering track generation the **unit (dimensionality) of the target distance** is also checked:
+`previewRoute()` and `DataGenerator.generate()` both reject target distances below 100 m or above 50 km (and
+non-finite values) and report the reason in the log, for example:
+
+```text
+目标距离参数异常: 当前值 1791910592.872km（应为 1-5km），请重新设置目标距离后重试
+```
+
+That message means the value reaching the algorithm is not on a kilometre scale (for example a timestamp-scale
+number written into the configuration). It no longer crashes; the "当前值" in the log is the value actually
+read, which points at the layer that wrote it.

@@ -115,9 +115,11 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 
 **Login**
 
-- [ ] Tapping "JAccount 账号" on the account tab opens the login page; the Web page loads with a progress bar
-- [ ] After login it returns automatically and the status card reads "已登录，点击可退出"
-- [ ] Tapping the card opens the "退出账号" confirmation; confirming returns to the logged-out state
+- [ ] The main screen has no bottom tab bar; the title "开润" sits on the same row as the account/about icon buttons
+- [ ] Tapping the top-right account icon (labelled "登录" when signed out) opens the login page; the Web page loads with a progress bar
+- [ ] After login it returns automatically and the status card reads "已登录，点击可退出"; the account icon label becomes "账号"
+- [ ] While signed in, tapping the account icon opens the "退出账号" confirmation; confirming returns to the logged-out state
+- [ ] Tapping the top-right "关于" icon opens the standalone About page
 
 **Parameters**
 

@@ -5,7 +5,7 @@
  *
  * HarmonyOS 系统应用风格适配：图标统一使用 HarmonyOS Symbol 系统符号
  * （SymbolGlyph / $r('sys.symbol.*')），不再使用 emoji 占位。
- * 参数配置行已改用 HDS 原生组件 HdsListItemCard（见 RunScreen.ets / AccountScreen.ets）。
+ * 参数配置行已改用 HDS 原生组件 HdsListItemCard（见 RunScreen.ets）。
  */
 import {
   PrefixIcon,
@@ -20,12 +20,12 @@ import {
 } from '@kit.UIDesignKit';
 
 /**
- * HdsNavigation 在 FULL 大标题模式（仅主标题）下的标题栏高度（vp，官方规格：
- * 仅主标题 112vp，主+副标题 138vp）。titleBar 是悬浮层、覆盖在内容区上方，
- * 一级页内容首部必须预留等高空间避让，否则大标题会遮挡卡片/按钮等控件
- * （官方示例以 Blank().height(标题栏高度) 作为滚动内容首元素实现避让）。
+ * HdsNavigation 在 MINI 标题模式下的标题栏高度（vp）。
+ * 一级页使用 MINI 模式（标题与右上角菜单按钮同一行，见 Index.ets），
+ * titleBar 是悬浮层、覆盖在内容区上方，内容首部必须预留等高空间避让，
+ * 否则标题栏会遮挡卡片/按钮等控件（官方示例以 Blank().height(标题栏高度) 作为滚动内容首元素实现避让）。
  */
-export const HDS_FULL_TITLE_BAR_HEIGHT: number = 112;
+export const HDS_MINI_TITLE_BAR_HEIGHT: number = 56;
 
 /**
  * HdsListItemCard 文本区的本地结构声明。

@@ -39,6 +39,13 @@ export class DataGenerator {
    * 100km/1km 这类极端但结构正常的路线约 11 万点，会命中提示而不是闪退。
    */
   private static readonly MAX_EXPANSION_POINTS: number = 100000;
+  /**
+   * 目标距离合法区间（米）。
+   * 界面只允许 1.0-5.0km，预留量级余量后作为兜底：距离一旦超出该区间（例如上游把
+   * 毫秒时间戳误当作距离传入）说明参数错误，直接抛出可读错误，绝不进入扩增循环。
+   */
+  private static readonly MIN_TARGET_DISTANCE_M: number = 100.0;
+  private static readonly MAX_TARGET_DISTANCE_M: number = 50000.0;
 
   private static readonly DEFAULT_RULES: PointRules = new PointRules(9, 180, 540);
 
@@ -98,6 +105,15 @@ export class DataGenerator {
   ): Promise<RunOutcome> {
     if (coordinates.length < 2) {
       throw new Error('路线坐标点不足，至少需要 2 个点');
+    }
+    // 目标距离量纲与范围校验：只接受米，且不超过上限。
+    // 若上游误传大数量级（例如把毫秒时间戳当成距离），循环圈数会到十亿级，
+    // 数组瞬间撑爆内存；这里先拦下并给出可读错误。
+    if (!Number.isFinite(targetDistanceM) || targetDistanceM < DataGenerator.MIN_TARGET_DISTANCE_M
+      || targetDistanceM > DataGenerator.MAX_TARGET_DISTANCE_M) {
+      throw new Error(
+        `目标距离异常（${targetDistanceM}m），应在 ${DataGenerator.MIN_TARGET_DISTANCE_M}-` +
+        `${DataGenerator.MAX_TARGET_DISTANCE_M}m 之间`);
     }
 
     const corrected = DataGenerator.correct(coordinates);

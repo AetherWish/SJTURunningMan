@@ -8,7 +8,7 @@ import {
   hdsPrefixIcon,
   hdsLabelItem,
   HdsCardOptions,
-  HDS_FULL_TITLE_BAR_HEIGHT
+  HDS_MINI_TITLE_BAR_HEIGHT
 } from './CommonComponents';
 import { ChoiceChips, DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider, TimeField } from './Controls';
 import { StatusCard, StatItem } from './StatusCard';
@@ -731,14 +731,14 @@ export struct RunScreen {
             this.DisclaimerNotice()
           }
           .width('100%')
-          // 四边统一内边距：top 额外叠加 HdsNavigation FULL 大标题栏高度（112vp）——
+          // 四边统一内边距：top 额外叠加 HdsNavigation MINI 标题栏高度（56vp）——
           // titleBar 为悬浮层覆盖在内容上方，官方示例要求内容首部预留等高空间避让；
-          // bottom 为悬浮页签 + 底部操作栏预留空间。
+          // bottom 为底部操作栏预留空间。
           .padding({
             left: 16,
             right: 16,
-            top: HDS_FULL_TITLE_BAR_HEIGHT + 16,
-            bottom: 180
+            top: HDS_MINI_TITLE_BAR_HEIGHT + 16,
+            bottom: 120
           })
         }
         .scrollable(ScrollDirection.Vertical)
