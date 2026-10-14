@@ -97,7 +97,7 @@ export struct DistanceSlider {
   build() {
     Column() {
       if (!this.showValueRow) {
-        // SettingCard 布局：读数由 DistanceReadout 渲染在标签行（见该组件）；这里只画滑杆，
+        // SettingCard 布局：读数由该卡片的 @StorageProp('distanceKmText') 渲染在标签行；这里只画滑杆，
         // 上限提示单独占一行右对齐。
         Row() {
           Blank()
@@ -144,27 +144,6 @@ export struct DistanceSlider {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-  }
-}
-
-/**
- * 目标距离读数（「4.0 km」）。
- *
- * 必须是一个独立组件：读数由本组件读取 @Prop distanceKm 渲染，滑杆拖动时它能刷新；
- * 若把同样的文本交给父组件渲染（哪怕父组件在 onDistanceChange 里写了 @State），
- * 读数会停在旧值 —— 在 @BuilderParam 内容里发出的状态写入不会触发父组件重建
- * （实测父组件渲染的读数停在 4.0，滑杆自身读到的是 1.6）。
- */
-@Component
-export struct DistanceReadout {
-  @Prop distanceKm: number = 1;
-
-  build() {
-    Text(`${this.distanceKm.toFixed(1)} km`)
-      .fontSize(19)
-      .fontWeight(FontWeight.Bold)
-      .fontColor($r('app.color.brand_primary'))
-      .maxLines(1)
   }
 }
 

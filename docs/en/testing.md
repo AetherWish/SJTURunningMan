@@ -128,7 +128,7 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 - [ ] Tapping the start time opens a 24-hour hour/minute/second picker; changing a value and confirming fills it back in (hour caps at 23, minute and second at 59)
 - [ ] Tapping the ⓘ icon next to the start-time label explains the jitter rule
 - [ ] The whole end-date row is tappable, opens the date picker, and defaults to yesterday
-- [ ] Distance slider spans 1–5 km; dragging updates the value below the "目标距离" label live, and the "距离" stat card reflects the final value
+- [ ] Distance slider spans 1–5 km; its value sits on the same line as the "目标距离" label and updates live while dragging, and the "距离" stat card reflects the final value
 - [ ] A scrollbar appears on the home page and the About page while scrolling and fades out when idle
 
 **Routes**

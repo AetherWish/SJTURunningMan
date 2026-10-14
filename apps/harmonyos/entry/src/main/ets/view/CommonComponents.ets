@@ -118,6 +118,14 @@ export struct SettingCard {
    * 传值时以该符号 + HDS_STATUS_DOT_COLOR 呈现，用作「必填/已完成」等状态标记。
    */
   prefixSymbol: Resource | undefined = undefined;
+  /**
+   * 标签行读数（如「目标距离 4.0 km」中的 `4.0 km`）。
+   *
+   * 走 AppStorage 而不是父组件传值：ArkUI 会把 `@BuilderParam` 的箭头函数 bind 成子组件的
+   * `this`，闭包里读父组件 @State 会读到陈旧值（实测滑杆已到 1.6、父组件渲染的读数仍是 4.0），
+   * 而 `@StorageProp` 不依赖 `this`。写入方（滑杆 onChange）用同一个键。
+   */
+  @StorageProp('distanceKmText') labelTrailingValue: string = '';
   /** 卡片主体内容 */
   @BuilderParam control: () => void;
 
@@ -140,6 +148,16 @@ export struct SettingCard {
             .fontColor($r('app.color.text_primary'))
             .maxLines(1)
 
+          // 标签行读数（如「目标距离 4.0 km」）：值来自 AppStorage，拖动滑杆时能实时刷新
+          if (this.labelTrailingValue.length > 0) {
+            Text(this.labelTrailingValue)
+              .fontSize(19)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.brand_primary'))
+              .maxLines(1)
+              .margin({ left: 8 })
+          }
+
           if (this.infoText.length > 0) {
             SymbolGlyph($r('sys.symbol.info_circle'))
               .fontSize(16)
@@ -158,8 +176,7 @@ export struct SettingCard {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
-        // 标签行与读数行贴紧：读数由 DistanceReadout 组件渲染（能随滑杆实时刷新），
-        // 它是控件列的首行，把上边距收窄、视觉上就跟在标签后面。
+        // 控件列紧贴标签行，视觉上像标签的续行
         .margin({ top: 4 })
       }
       .width('100%')

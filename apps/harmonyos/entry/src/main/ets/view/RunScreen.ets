@@ -7,7 +7,7 @@ import {
   SettingCard,
   HDS_MINI_TITLE_BAR_HEIGHT
 } from './CommonComponents';
-import { DistanceReadout, DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider } from './Controls';
+import { DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider } from './Controls';
 import { StatusCard, StatItem } from './StatusCard';
 import { ConsoleLog } from './ConsoleLog';
 import { RoutePreviewCanvas } from './RoutePreviewCanvas';
@@ -67,6 +67,8 @@ export struct RunScreen {
   aboutToAppear(): void {
     this.viewModel.refreshLoginState();
     this.viewModel.updateConfig(this.buildConfig());
+    // 目标距离读数写在 SettingCard 标签行，值从 AppStorage 读取；这里写入初值
+    AppStorage.setOrCreate('distanceKmText', `${this.distanceKm.toFixed(1)} km`);
     // 路线冲突由 ViewModel 挂起任务时回调（等价 Compose 对 routeConflict 状态的响应）
     this.viewModel.onRouteConflict = (): void => {
       this.showConflictIfNeeded();
@@ -112,36 +114,24 @@ export struct RunScreen {
    * 传给组件的箭头函数里，ArkTS 编译器不会把该调用重写成
    * `new DistanceSlider(this, {...})`，运行时会抛出
    * `TypeError: class constructor cannot called without 'new'`（真机 nova 12 Ultra 崩溃）。
-   * 同理 DistanceReadout 也必须通过本方法实例化。
    */
   @Builder
   DistanceSliderBuilder() {
-    Column({ space: 2 }) {
-      // 读数放在控件列首行，与卡片左内容边缘对齐（图标列起点），
-      // 视觉上如「目标距离」的下一行自然延续，不再缩进到卡片中部；
-      // 由 DistanceReadout 组件自读 @Prop，随滑杆实时刷新。
-      Row() {
-        DistanceReadout({ distanceKm: this.distanceKm })
+    DistanceSlider({
+      // 单向绑定：父组件是唯一数据源，滑杆通过 onDistanceChange 上报新值
+      distanceKm: this.distanceKm,
+      minDistanceKm: AppConfig.MIN_DISTANCE_KM,
+      maxDistanceKm: AppConfig.MAX_DISTANCE_KM,
+      isEnabled: !this.viewModel.running,
+      // 读数已渲染在标签行，滑杆只画轨道 + 右侧上限
+      showValueRow: false,
+      onDistanceChange: (value: number): void => {
+        this.distanceKm = value;
+        // 标签行读数从 AppStorage 读取（父组件 @State 写入不会触发卡片重建）
+        AppStorage.setOrCreate('distanceKmText', `${value.toFixed(1)} km`);
+        this.viewModel.updateConfig(this.buildConfig());
       }
-      .width('100%')
-
-      DistanceSlider({
-        // 单向绑定：父组件是唯一数据源，滑杆通过 onDistanceChange 上报新值
-        distanceKm: this.distanceKm,
-        minDistanceKm: AppConfig.MIN_DISTANCE_KM,
-        maxDistanceKm: AppConfig.MAX_DISTANCE_KM,
-        isEnabled: !this.viewModel.running,
-        // 读数已由 DistanceReadout 渲染在标签行下方，滑杆只画轨道 + 右侧上限
-        showValueRow: false,
-        valueIndent: 0,
-        onDistanceChange: (value: number): void => {
-          this.distanceKm = value;
-          this.viewModel.updateConfig(this.buildConfig());
-        }
-      })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
+    })
   }
 
   private pickDate(): void {
