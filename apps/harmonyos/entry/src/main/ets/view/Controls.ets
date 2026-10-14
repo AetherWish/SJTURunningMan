@@ -10,29 +10,14 @@
  *    无装饰器的普通成员仅在构造时赋值一次，父组件重渲染不会同步。
  *    回调函数保持普通成员（闭包捕获父组件 this，无需同步）。
  */
-import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
+import { ColorMetrics } from '@kit.ArkUI';
 import { toSelectOptions } from './CommonComponents';
 
-/** 时/分/秒上限（等价 Android TimeField 的 coerceIn） */
-const MAX_HOUR: number = 23;
-const MAX_MINUTE: number = 59;
-const MAX_SECOND: number = 59;
 /** 数字输入框统一高度与圆角 */
 const FIELD_HEIGHT: number = 36;
 const FIELD_RADIUS: number = 10;
 /** 数字输入框边框 */
 const FIELD_BORDER: number = 1;
-
-/** 数值裁剪（等价 Kotlin coerceIn，并取整） */
-function clampInt(value: number, min: number, max: number): number {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return Math.trunc(value);
-}
 
 /**
  * 数字输入框（等价 Android NumberField）
@@ -81,79 +66,6 @@ export struct NumberField {
         })
     }
     .alignItems(HorizontalAlign.Start)
-  }
-}
-
-/**
- * 时间输入（时:分:秒，等价 Android TimeField）
- * 变更时立即按 0..23 / 0..59 / 0..59 裁剪。
- */
-@Component
-export struct TimeField {
-  @Prop hour: number = 0;
-  @Prop minute: number = 0;
-  @Prop second: number = 0;
-  @Prop isEnabled: boolean = true;
-  onChange: (hour: number, minute: number, second: number) => void =
-    (hour: number, minute: number, second: number) => {
-    };
-
-  build() {
-    Row() {
-      // 三等分可用宽度：fieldWidth 为固定 vp（单独使用时的默认宽度），
-      // 放进 Row 时用 layoutWeight(1) 让三个输入框均分剩余空间，
-      // 否则固定宽度之和会超过卡片内容宽度（实测秒输入框溢出卡片右边缘 107px）。
-      Column() {
-        NumberField({
-          value: this.hour,
-          label: '时',
-          maxLength: 2,
-          isEnabled: this.isEnabled,
-          onValueChange: (value: number): void => {
-            this.onChange(clampInt(value, 0, MAX_HOUR), this.minute, this.second);
-          }
-        })
-      }
-      .layoutWeight(1)
-
-      Text(':')
-        .fontSize(16)
-        .fontColor($r('app.color.text_secondary'))
-        .margin({ left: 4, right: 4, bottom: 9 })
-
-      Column() {
-        NumberField({
-          value: this.minute,
-          label: '分',
-          maxLength: 2,
-          isEnabled: this.isEnabled,
-          onValueChange: (value: number): void => {
-            this.onChange(this.hour, clampInt(value, 0, MAX_MINUTE), this.second);
-          }
-        })
-      }
-      .layoutWeight(1)
-
-      Text(':')
-        .fontSize(16)
-        .fontColor($r('app.color.text_secondary'))
-        .margin({ left: 4, right: 4, bottom: 9 })
-
-      Column() {
-        NumberField({
-          value: this.second,
-          label: '秒',
-          maxLength: 2,
-          isEnabled: this.isEnabled,
-          onValueChange: (value: number): void => {
-            this.onChange(this.hour, this.minute, clampInt(value, 0, MAX_SECOND));
-          }
-        })
-      }
-      .layoutWeight(1)
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Bottom)
   }
 }
 
@@ -207,65 +119,6 @@ export struct DistanceSlider {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-  }
-}
-
-/**
- * 选项胶囊组（等价 Android ChoiceChips）
- * 自动换行；选中项用 brand_primary_container 底色 + brand_primary 边框。
- *
- * availableWidth 默认 '100%'：放在 SettingCard（原生布局容器，宽度参与测量）
- * 的控件列里时按父容器实际宽度换行。
- * 注意不要把它放进 HdsListItemCard 的 suffixItem —— 该后缀只接收 Builder，
- * 内容不参与卡片宽度分配，未显式设置宽度时 Flex 会以“屏幕宽度”作为换行基准，
- * 胶囊会溢出卡片右边缘（详见 CommonComponents.ets 中 SettingCard 的说明）。
- */
-@Component
-export struct ChoiceChips {
-  @Prop options: string[] = [];
-  @Prop selected: string = '';
-  @Prop isEnabled: boolean = true;
-  /** 可用宽度，默认占满父容器 */
-  @Prop availableWidth: Length = '100%';
-  onSelect: (value: string) => void = (value: string) => {
-  };
-
-  build() {
-    Flex({
-      wrap: FlexWrap.Wrap,
-      justifyContent: FlexAlign.Start,
-      // 行间距 8vp（主/交叉轴间距，等价 chip 自身的 margin，避免用 margin 累加出误差）
-      space: { main: LengthMetrics.vp(0), cross: LengthMetrics.vp(8) }
-    }) {
-      ForEach(this.options, (option: string) => {
-        Row() {
-          Text(option)
-            .fontSize(13)
-            .fontWeight(option === this.selected ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(option === this.selected
-              ? $r('app.color.brand_on_primary_container')
-              : $r('app.color.text_primary'))
-        }
-        .height(34)
-        .padding({ left: 12, right: 12 })
-        .borderRadius(17)
-        .backgroundColor(option === this.selected
-          ? $r('app.color.brand_primary_container')
-          : $r('app.color.card_surface'))
-        .border({
-          width: FIELD_BORDER,
-          color: option === this.selected ? $r('app.color.brand_primary') : $r('app.color.outline_variant')
-        })
-        .margin({ right: 6 })
-        .opacity(this.isEnabled ? 1 : 0.5)
-        .onClick(() => {
-          if (this.isEnabled) {
-            this.onSelect(option);
-          }
-        })
-      }, (option: string) => option)
-    }
-    .width(this.availableWidth)
   }
 }
 

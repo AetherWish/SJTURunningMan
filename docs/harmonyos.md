@@ -41,13 +41,15 @@
 
 | 参数 | 范围 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| 跑步次数 | 1–30 次 | 1 | 可选 1/3/5/7/10/15/30，或选「自定义」手动输入 |
-| 开始时间 | 时 0–23 / 分 0–59 / 秒 0–59（即 00:00:00–23:59:59） | 08:00:00 | 每条会加 **±10 分钟 / ±30 秒** 随机波动 |
-| 结束日期 | 日期选择器 | 昨天 | 以此为最新一条向前生成 |
+| 跑步次数 | 1–30 次 | 1 | 下拉框可选 1/3/5/7/10/15/30，或选「自定义…」手动输入 |
+| 开始时间 | 时 0–23 / 分 0–59 / 秒 0–59（即 00:00:00–23:59:59） | 08:00:00 | 点按弹出系统时间选择器（24 小时制、时分秒三列）；每条会加 **±10 分钟 / ±30 秒** 随机波动 |
+| 结束日期 | 日期选择器 | 昨天 | 以此为最新一条向前生成；点按整行弹出 |
 | 跑步距离 | 1–5 km | 4 km | 单条目标距离，滑杆步长 0.1 km |
 | 跑步路线 | 见下 | 思源湖路线 | 下拉选择，可在新页面连点设置 |
 
 参数范围来自 `apps/harmonyos/entry/src/main/ets/config/AppConfig.ets`。
+
+任务设置的每一行都是自绘的 `SettingCard`（`apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets`）：左侧系统符号图标列 + 标签列宽度固定，因此各行的图标左边缘与标签左边缘严格对齐；控件列宽度由 ArkUI 正常测量。为什么不用 `HdsListItemCard` 承载这些交互控件，见第 8 节。
 
 ## 4. 开始上传
 
@@ -119,18 +121,21 @@ DistanceSliderBuilder() {
 
 **HDS 卡片的自定义后缀不参与尺寸测量。** `HdsListItemCard` 的 `suffixItem` 只接受
 `SuffixCustomBuilder`，其后缀内容既不参与卡片的宽度分配、也不参与高度测量：实测把 8 个
-`ChoiceChips` 放进后缀区时，卡片高度仍是按 `SuffixText` 固定行高算出的 64vp，后缀里的
+选项胶囊放进后缀区时，卡片高度仍是按 `SuffixText` 固定行高算出的 64vp，后缀里的
 `Flex` 却按“屏幕宽度”换行并向上溢出，胶囊被画到卡片外、与上一张卡片的按钮重叠。
 
 因此**带交互控件的参数行不要放进 `HdsListItemCard` 的后缀**，改用原生 ArkUI 自绘卡片
 （`apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets` 的 `SettingCard`）：卡片外观
-（`card_surface` 底色、16vp 圆角、16vp 内边距、42vp 图标列 + 22vp 系统符号）与 `HdsListItemCard`
-对齐，控件列用 `layoutWeight(1)` / 100% 宽度交给 ArkUI 正常测量，尺寸自适应。
-纯静态的信息行（如结束日期）仍继续使用 `HdsListItemCard`。
+（`card_surface` 底色、16vp 圆角、16vp 内边距、系统符号 + 固定宽度的图标列与标签列）与
+`HdsListItemCard` 对齐，控件列用 `layoutWeight(1)` / 100% 宽度交给 ArkUI 正常测量，尺寸自适应。
+**任务设置的四行全部用 `SettingCard`**（含结束日期这类静态行，用 `valueText` 参数把值右对齐）：
+一旦混用 `HdsListItemCard` 与 `SettingCard`，两者的图标列宽度不同（84px vs 78px），
+行与行的标签左边缘就会差 21px 左右。
 
-> 需要宽控件的行（跑步次数胶囊组、目标距离滑杆）用 `SettingCard` 的 `fullWidth` 模式，
-> 把标签移到控件上方：ArkUI 的 `Text` 有 64vp 的最小宽度且不随内容收缩，并排布局下标签列
-> 会吃掉约 280vp，胶囊组只能排成 3 行。
+> 需要宽控件的行（目标距离滑杆）用 `SettingCard` 的 `fullWidth` 模式，把标签移到控件上方：
+> ArkUI 的 `Text` 有 64vp 的最小宽度且不随内容收缩，并排布局下标签列会吃掉一截宽度。
+> `SettingCard` 的标签列宽度也**不能小于 64vp**，否则「跑步次数」这类 4 字标签会折成两行
+> （实测 43vp 时四行有三行折行）。
 
 **相邻同类型参数的实参顺序写反，静态检查不会报错。** `generate()` 的前两个数字参数是
 `targetDistanceM`（米）与 `startTimeMs`（毫秒时间戳），两者都是 `number`，把实参写反照样编译通过。

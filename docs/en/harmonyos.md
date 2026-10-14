@@ -41,13 +41,15 @@ The main screen has **no bottom tab bar**: the title ("开润") sits on the same
 
 | Parameter | Range | Default | Notes |
 | --- | --- | --- | --- |
-| Runs | 1–30 | 1 | Choose 1/3/5/7/10/15/30 or "自定义" to type a number |
-| Start time | hour 0–23 / minute 0–59 / second 0–59 (i.e. 00:00:00–23:59:59) | 08:00:00 | Each record gets a random **±10 min / ±30 s** jitter |
-| End date | Date picker | Yesterday | Records are generated backwards from this date |
+| Runs | 1–30 | 1 | Dropdown with 1/3/5/7/10/15/30, or "自定义…" to type a number |
+| Start time | hour 0–23 / minute 0–59 / second 0–59 (i.e. 00:00:00–23:59:59) | 08:00:00 | Tapping opens the system time picker (24-hour, three columns); each record gets a random **±10 min / ±30 s** jitter |
+| End date | Date picker | Yesterday | Records are generated backwards from this date; tapping the whole row opens the picker |
 | Distance | 1–5 km | 4 km | Per-record target distance, slider step 0.1 km |
 | Route | See below | 思源湖路线 | Dropdown; design a new one on a separate page |
 
 Ranges come from `apps/harmonyos/entry/src/main/ets/config/AppConfig.ets`.
+
+Every task-settings row is a hand-rolled `SettingCard` (`apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets`): a symbol column plus a fixed-width label column, so all rows share exactly the same icon and label left edges; the control column is measured normally by ArkUI. For why `HdsListItemCard` is not used for these rows, see section 8.
 
 ## 4. Starting an upload
 
@@ -121,20 +123,23 @@ DistanceSliderBuilder() {
 
 **A custom suffix on an HDS card does not take part in size measurement.** `HdsListItemCard`'s `suffixItem`
 accepts only a `SuffixCustomBuilder`, and that suffix contributes neither to the card's width allocation nor to
-its height measurement. Measured: with eight `ChoiceChips` in the suffix, the card stayed 64vp tall (the fixed
+its height measurement. Measured: with eight option chips in the suffix, the card stayed 64vp tall (the fixed
 `SuffixText` line height) while the `Flex` inside wrapped against the *screen* width and grew upwards, drawing
 the chips outside the card and on top of the previous card's buttons.
 
 So **never put an interactive control row in a `HdsListItemCard` suffix**. Use a plain ArkUI card instead — the
 `SettingCard` in `apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets`: it matches the HDS card look
-(`card_surface` background, 16vp radius, 16vp padding, a 42vp icon column with a 22vp system symbol) while the
-control column uses `layoutWeight(1)` / full width and is measured normally by ArkUI. Purely static rows (for
-example the end date) still use `HdsListItemCard`.
+(`card_surface` background, 16vp radius, 16vp padding, a system symbol plus fixed-width icon and label columns)
+while the control column uses `layoutWeight(1)` / full width and is measured normally by ArkUI.
+**All four task-settings rows use `SettingCard`** — including static rows such as the end date, which pass
+`valueText` to right-align the value. Mixing `HdsListItemCard` with `SettingCard` makes the label left edges
+differ by roughly 21px, because the two icon columns are 84px and 78px wide respectively.
 
-> Rows that need a wide control (the run-count chips, the target-distance slider) pass `fullWidth` to
-> `SettingCard`, which moves the label above the control: ArkUI's `Text` has a 64vp minimum width and does not
-> shrink to its content, so a side-by-side layout costs the label column about 280vp and wraps the chips onto
-> three rows.
+> Rows that need a wide control (the target-distance slider) pass `fullWidth` to `SettingCard`, which moves the
+> label above the control: ArkUI's `Text` has a 64vp minimum width and does not shrink to its content, so a
+> side-by-side layout costs the label column a chunk of width. The `SettingCard` label column must therefore
+> **not be narrower than 64vp**, or four-character labels such as "跑步次数" wrap onto two lines (measured: at
+> 43vp three of the four rows wrapped).
 
 **Swapping two adjacent arguments of the same type is not caught statically.** The first two numeric
 parameters of `generate()` are `targetDistanceM` (metres) and `startTimeMs` (a millisecond timestamp); both are

@@ -52,4 +52,10 @@ export class AppConfig {
 
   /** 作者署名（关于页） */
   static readonly CREDITS: string = '界面优化：Github@CEQ151\n三改：Github@JackyTJie\n二改：Github@accelerator-s\n原作者：Github@Labyrinth0419';
+
+  /**
+   * 鸿蒙端维护者署名。
+   * 与 CREDITS 分开：CREDITS 的四人名单四端一致，鸿蒙端维护者只在鸿蒙端展示。
+   */
+  static readonly HARMONYOS_CREDITS: string = '鸿蒙版维护：Github@AetherWish';
 }

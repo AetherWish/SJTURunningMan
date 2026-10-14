@@ -5,21 +5,9 @@
  *
  * HarmonyOS 系统应用风格适配：图标统一使用 HarmonyOS Symbol 系统符号
  * （SymbolGlyph / $r('sys.symbol.*')），不再使用 emoji 占位。
- * 静态信息行使用 HDS 原生组件 HdsListItemCard（见 RunScreen.ets）；
- * 带交互控件的参数行改用本文件的自绘 SettingCard —— HdsListItemCard 的自定义
+ * 任务设置的每一行都用本文件的自绘 SettingCard：HdsListItemCard 的自定义
  * 后缀构建器不参与尺寸测量，控件会溢出卡片（详见 HDS_CARD_RADIUS 处的说明）。
  */
-import {
-  PrefixIcon,
-  PrefixIconOptions,
-  SymbolGlyphOptions,
-  TextOptions,
-  IconSize,
-  OnClickCallback,
-  SuffixArrow,
-  SuffixCustomBuilder,
-  SuffixText
-} from '@kit.UIDesignKit';
 
 /**
  * HdsNavigation 在 MINI 标题模式下的标题栏高度（vp）。
@@ -33,69 +21,47 @@ export const HDS_MINI_TITLE_BAR_HEIGHT: number = 56;
  * 任务设置卡片（自绘，视觉对齐 HdsListItemCard）的几何常量，单位 vp。
  *
  * 为什么自绘：HdsListItemCard 的 suffixItem 只接受 Builder（SuffixCustomBuilder），
- * 该自定义构建器的内容不参与卡片的尺寸测量 —— 实测把 8 个 ChoiceChips 放进后缀区时，
- * 卡片高度仍是 64vp（按 SuffixText 的固定行高），内部 Flex 却按屏宽排版并溢出卡片
- * （胶囊画到了卡片外、与上一张卡片的按钮重叠）。给后缀内容显式设宽度只解决了横向溢出，
+ * 该自定义构建器的内容不参与卡片的尺寸测量 —— 实测把一行选项控件（原胶囊组，
+ * 现将常用的任务设置项改为系统下拉框 Select）放进后缀区时，
+ * 卡片高度仍是 64vp（按 SuffixText 的固定行高），内部控件却按屏宽排版并溢出卡片
+ * （控件画到了卡片外、与上一张卡片的按钮重叠）。给后缀内容显式设宽度只解决了横向溢出，
  * 纵向仍需给卡片写死高度。这里改用原生 Column 自绘卡片：内容由 ArkUI 正常测量，
  * 尺寸自适应，不再需要估算高度。
  */
 export const HDS_CARD_RADIUS: number = 16;
 export const HDS_CARD_PADDING: number = 16;
-/** 前缀图标列宽度（HdsListItemCard 实测为 84px / 42vp） */
-export const HDS_ICON_COLUMN: number = 42;
-/** 前缀图标字号（HdsListItemCard 实测为 22vp） */
-export const HDS_ICON_SIZE: number = 22;
-/** 文本列到后缀列的间距 */
-export const HDS_TEXT_SUFFIX_GAP: number = 8;
+/**
+ * 状态圆点（必填/已完成标记）字号，单位 vp
+ */
+export const HDS_STATUS_DOT_SIZE: number = 18;
+/**
+ * 状态圆点颜色（品牌主色，表示「已完成/已确认」，非报错）。
+ * 不用 $r('app.color.*')：SymbolGlyph 的 fontColor 只接受 Array<ResourceColor>，
+ * 直接给 Resource 资源引用时字体颜色不生效（实测仍为默认色），故用字面量。
+ */
+export const HDS_STATUS_DOT_COLOR: string = '#6650A4';
+/**
+ * SettingCard 图标字号，与 HdsListItemCard 的 22vp 对齐（44→48px 的实测差可直接忽略）。
+ */
+const SETTING_ICON_SIZE: number = 20;
+/**
+ * 图标列宽度（vp）：图标居中于 HdsListItemCard 前缀图标所占的 [56,140]px 区间内。
+ * 与 SETTING_LABEL_WIDTH 之和决定标签起点：56 + 2.24×(35+65) = 280px，
+ * 即安卓/iOS/HDS 原生列表行的标签左边缘（实测 HdsListItemCard 的标签起点正是 280）。
+ */
+const SETTING_ICON_COLUMN: number = 35;
+/**
+ * 标签列宽度（vp）。
+ * 下界由两条约束共同决定：
+ * 1) 与 SETTING_ICON_COLUMN 一起把标签起点钉在 x=280px，各行（含静态信息行）左边缘一致；
+ * 2) ArkUI 的 Text 有 64vp 最小宽度，低于此值「跑步次数」这类 4 字标签会折行
+ *    （实测 43vp 时四行有三行折成两行）。故取 65vp，既满足最小宽度又钉住起点。
+ */
+const SETTING_LABEL_WIDTH: number = 65;
 
 /**
- * HdsListItemCard 文本区的本地结构声明。
- * kit 未再导出 TextItemOptions（@kit.UIDesignKit 仅导出 TextOptions），
- * 故按结构兼容原则仅声明用到的字段。
+ * 构造 Select 选项数组
  */
-interface CardTextItemOptions {
-  primaryText?: TextOptions;
-  secondaryText?: TextOptions;
-}
-
-/**
- * HdsListItemCard 选项的本地结构声明（结构兼容 kit 的 HdsListItemCardOptions）。
- * kit 的 HdsListItemCardOptions 引用了未随 kit 导出的 TextItemOptions，
- * 编译器的字面量检查无法完整解析该接口，导致以它为上下文类型的对象字面量
- * 全部被判为 arkts-no-untyped-obj-literals；改用本声明后字面量可正常通过检查，
- * 传参时依赖 ArkTS 的结构类型兼容（各字段类型均为 kit 类型的子类型）。
- */
-export interface HdsCardOptions {
-  /** 左侧前缀图标（系统符号） */
-  prefixItem?: PrefixIcon;
-  /** 中部文本区 */
-  textItem?: CardTextItemOptions;
-  /** 右侧后缀控件（自定义构建器 / 文本 / 箭头） */
-  suffixItem?: SuffixCustomBuilder | SuffixText | SuffixArrow;
-  /** 整卡点击回调 */
-  onClick?: OnClickCallback;
-}
-
-/**
- * 构造 HdsListItemCard 的前缀系统符号图标。
- * 以显式类型对象构造，规避 ArkTS 对联合类型上下文字面量的限制
- * （PrefixIconType = ImageOptions | SymbolGlyphOptions）。
- */
-export function hdsPrefixIcon(res: Resource): PrefixIcon {
-  const symbolOptions: SymbolGlyphOptions = { symbol: res };
-  const iconOptions: PrefixIconOptions = {
-    iconSize: IconSize.SYSTEM_ICON,
-    iconValue: symbolOptions
-  };
-  return new PrefixIcon(iconOptions);
-}
-
-/** 构造 HdsListItemCard 的主标题文本（列表行标签）。 */
-export function hdsLabelItem(label: string): CardTextItemOptions {
-  return { primaryText: { text: label } };
-}
-
-/** 构造 Select 选项数组 */
 export function toSelectOptions(values: string[]): SelectOption[] {
   const options: SelectOption[] = [];
   for (let i = 0; i < values.length; i++) {
@@ -114,8 +80,13 @@ export function toSelectOptions(values: string[]): SelectOption[] {
  *
  * fullWidth：控件横向占满整张卡片（标签移到控件上方）。
  * 原因：ArkUI 的 Text 有 64vp 的最小宽度且不随内容收缩，并排布局下即便卡片很宽，
- * 标签列也会吃掉一截，胶囊组只能拿到约 280vp —— 实测 8 个胶囊被迫换到 3 行。
- * 需要宽控件的行（跑步次数/目标距离）用 fullWidth，控件拿满 ~500vp，胶囊一行放下。
+ * 标签列也会吃掉一截（实测控件列只剩约 283vp）。
+ * 需要宽控件的行（目标距离滑杆）用 fullWidth，控件拿满约 500vp；
+ * 窄控件行（跑步次数下拉框、开始时间）仍用并排布局。
+ *
+ * 并排布局下图标列固定为 SETTING_ICON_COLUMN、标签列固定为 SETTING_LABEL_WIDTH，
+ * 因此任务设置各行（含静态信息行）的标签左边缘严格一致、控件列起点也一致；
+ * 前缀槽位用 prefixSymbol 承载「必填/已完成」状态标记，无标记时留空占位而不塌缩。
  */
 @Component
 export struct SettingCard {
@@ -125,6 +96,16 @@ export struct SettingCard {
   symbol: Resource | undefined = undefined;
   /** 控件是否横向占满卡片（标签移到上方） */
   fullWidth: boolean = false;
+  /**
+   * 纯静态信息行的右侧文本（如「2026-10-13」）。
+   * 传值时不接收 control builder，把该值右对齐渲染在控件列。
+   */
+  valueText: string = '';
+  /**
+   * 自定义前缀（不传则渲染 symbol），只在非 fullWidth 布局下生效：
+   * 传值时以该符号 + HDS_STATUS_DOT_COLOR 呈现，用作「必填/已完成」等状态标记。
+   */
+  prefixSymbol: Resource | undefined = undefined;
   /** 卡片主体内容 */
   @BuilderParam control: () => void;
 
@@ -132,12 +113,16 @@ export struct SettingCard {
     if (this.fullWidth) {
       Column() {
         Row() {
-          if (this.symbol !== undefined) {
-            SymbolGlyph(this.symbol)
-              .fontSize(HDS_ICON_SIZE)
-              .fontColor([$r('app.color.brand_primary')])
-              .margin({ right: HDS_TEXT_SUFFIX_GAP })
+          Row() {
+            if (this.symbol !== undefined) {
+              SymbolGlyph(this.symbol)
+                .fontSize(SETTING_ICON_SIZE)
+                .fontColor([$r('app.color.brand_primary')])
+            }
           }
+          .width(SETTING_ICON_COLUMN)
+          .justifyContent(FlexAlign.Center)
+
           Text(this.label)
             .fontSize(16)
             .fontColor($r('app.color.text_primary'))
@@ -158,26 +143,44 @@ export struct SettingCard {
       .backgroundColor($r('app.color.card_surface'))
     } else {
       Row() {
-        if (this.symbol !== undefined) {
-          Column() {
+        // 图标列固定宽度且图标居中：无 symbol 时留空占位，保证各行标签左边缘对齐。
+        Row() {
+          if (this.prefixSymbol !== undefined) {
+            SymbolGlyph(this.prefixSymbol)
+              .fontSize(HDS_STATUS_DOT_SIZE)
+              .fontColor([HDS_STATUS_DOT_COLOR])
+          } else if (this.symbol !== undefined) {
             SymbolGlyph(this.symbol)
-              .fontSize(HDS_ICON_SIZE)
+              .fontSize(SETTING_ICON_SIZE)
               .fontColor([$r('app.color.brand_primary')])
           }
-          .width(HDS_ICON_COLUMN)
-          .alignItems(HorizontalAlign.Start)
         }
+        .width(SETTING_ICON_COLUMN)
+        .height(SETTING_ICON_COLUMN)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
 
         Text(this.label)
           .fontSize(16)
           .fontColor($r('app.color.text_primary'))
-          .margin({ right: HDS_TEXT_SUFFIX_GAP })
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ minWidth: SETTING_LABEL_WIDTH })
 
-        Column() {
-          this.control()
+        if (this.valueText.length > 0) {
+          // 静态信息行：值右对齐，与交互行的控件列起点一致
+          Text(this.valueText)
+            .fontSize(15)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.End)
+        } else {
+          Column() {
+            this.control()
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
         }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .padding(HDS_CARD_PADDING)

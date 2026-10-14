@@ -1,17 +1,13 @@
 import { promptAction } from '@kit.ArkUI';
 import { uiMaterial } from '@kit.ArkUI';
-import { HdsListItemCard, SuffixText } from '@kit.UIDesignKit';
 import { MainViewModel, RunConfig } from '../viewmodel/MainViewModel';
 import { RouteConflict, RouteDecision, RoutePreview, TrackSample } from '../viewmodel/TaskModels';
 import { RouteInfo } from '../model/RouteInfo';
 import {
-  hdsPrefixIcon,
-  hdsLabelItem,
-  HdsCardOptions,
   SettingCard,
   HDS_MINI_TITLE_BAR_HEIGHT
 } from './CommonComponents';
-import { ChoiceChips, DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider, TimeField } from './Controls';
+import { DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider } from './Controls';
 import { StatusCard, StatItem } from './StatusCard';
 import { ConsoleLog } from './ConsoleLog';
 import { RoutePreviewCanvas } from './RoutePreviewCanvas';
@@ -33,6 +29,14 @@ import { AppConfig } from '../config/AppConfig';
  * - 安卓的底部 bottomBar 在本页以底部固定操作栏实现；
  * - 承诺书弹窗由 Index 页面承载（应用级门禁），本页只管任务。
  */
+
+/** 跑步次数下拉框的常用档位（等价安卓预设 chip） */
+const COMMON_DAYS: number[] = [1, 3, 5, 7, 10, 15, 30];
+/** 跑步次数下拉框里「自定义…」项的 key */
+const CUSTOM_DAYS_KEY: string = '__custom_days__';
+/** 任务设置行内下拉框宽度（vp） */
+const SETTING_DROPDOWN_WIDTH: number = 120;
+
 @Component
 export struct RunScreen {
   viewModel: MainViewModel = MainViewModel.getInstance();
@@ -100,25 +104,6 @@ export struct RunScreen {
   }
 
   // ==================== 卡片选项 ====================
-
-  /**
-   * 结束日期（静态信息行，继续使用 HDS 原生 HdsListItemCard）。
-   * 带交互控件的三行（跑步次数/开始时间/目标距离）改用自绘 SettingCard：
-   * HdsListItemCard 的自定义后缀不参与尺寸测量，控件会溢出卡片。
-   */
-  private dateCardOptions(): HdsCardOptions {
-    const options: HdsCardOptions = {
-      prefixItem: hdsPrefixIcon($r('sys.symbol.calendar')),
-      textItem: hdsLabelItem('结束日期'),
-      suffixItem: new SuffixText({ text: this.dateText }),
-      onClick: (): void => {
-        if (!this.viewModel.running) {
-          this.pickDate();
-        }
-      }
-    };
-    return options;
-  }
 
   /**
    * 目标距离滑杆（SettingCard 控件列内容）。
@@ -292,70 +277,126 @@ export struct RunScreen {
 
   @Builder
   DaysSelector() {
-    if (!this.showCustomDays) {
-      ChoiceChips({
-        options: ['1', '3', '5', '7', '10', '15', '30', '自定义'],
-        selected: `${this.days}`,
+    Row({ space: 8 }) {
+      // 常用次数用系统下拉框（Select）选择；「自定义…」切到数字输入框。
+      MenuDropdown({
+        value: `${this.days}`,
+        options: this.dayMenuOptions(),
         isEnabled: !this.viewModel.running,
-        onSelect: (value: string): void => {
-          if (value === '自定义') {
+        onSelect: (key: string): void => {
+          if (key === CUSTOM_DAYS_KEY) {
             this.showCustomDays = true;
             this.customDaysText = `${this.days}`;
-          } else {
-            this.days = parseInt(value);
-            this.viewModel.updateConfig(this.buildConfig());
+            return;
           }
+          this.showCustomDays = false;
+          this.days = Number.parseInt(key, 10);
+          this.viewModel.updateConfig(this.buildConfig());
         }
       })
-    } else {
-      Row({ space: 8 }) {
-        NumberField({
-          value: this.days,
-          label: '次数 1-30',
-          maxLength: 2,
-          fieldWidth: 96,
-          isEnabled: !this.viewModel.running,
-          onValueChange: (value: number): void => {
-            this.customDaysText = `${value}`;
-          }
-        })
-        Button('确定')
-          .fontSize(13)
-          .height(34)
-          .borderRadius(17)
-          .backgroundColor($r('app.color.brand_primary'))
-          .enabled(!this.viewModel.running)
-          .onClick(() => {
-            const n = parseInt(this.customDaysText);
-            this.days = isNaN(n) ? 1 : Math.max(1, Math.min(AppConfig.MAX_RUN_TIMES, n));
-            this.showCustomDays = false;
-            this.viewModel.updateConfig(this.buildConfig());
+      .width(SETTING_DROPDOWN_WIDTH)
+
+      if (this.showCustomDays) {
+        Row({ space: 8 }) {
+          NumberField({
+            value: this.days,
+            label: '次数 1-30',
+            maxLength: 2,
+            fieldWidth: 96,
+            isEnabled: !this.viewModel.running,
+            onValueChange: (value: number): void => {
+              this.customDaysText = `${value}`;
+            }
           })
+          Button('确定')
+            .fontSize(13)
+            .height(34)
+            .borderRadius(17)
+            .backgroundColor($r('app.color.brand_primary'))
+            .enabled(!this.viewModel.running)
+            .onClick(() => {
+              const n = Number.parseInt(this.customDaysText, 10);
+              this.days = Number.isNaN(n) ? 1 : Math.max(1, Math.min(AppConfig.MAX_RUN_TIMES, n));
+              this.showCustomDays = false;
+              this.viewModel.updateConfig(this.buildConfig());
+            })
+        }
+        .alignItems(VerticalAlign.Bottom)
       }
-      .alignItems(VerticalAlign.Bottom)
     }
+    .alignItems(VerticalAlign.Bottom)
+  }
+
+  /** 常用次数下拉项；当前次数不在常用值里时，把它的 subtitle 设为「当前」以便选中项显示为自定义值 */
+  private dayMenuOptions(): MenuOption[] {
+    const options: MenuOption[] = [];
+    for (let i = 0; i < COMMON_DAYS.length; i++) {
+      const value = COMMON_DAYS[i];
+      options.push(new MenuOption(`${value}`, `${value} 次`, '', this.days === value));
+    }
+    options.push(new MenuOption(CUSTOM_DAYS_KEY, '自定义…', '手动输入 1-30 之间的次数', this.showCustomDays));
+    return options;
   }
 
   @Builder
   TimeSelector() {
     Column({ space: 6 }) {
-      TimeField({
-        hour: this.timeHour,
-        minute: this.timeMinute,
-        second: this.timeSecond,
-        isEnabled: !this.viewModel.running,
-        onChange: (hour: number, minute: number, second: number): void => {
-          this.timeHour = hour;
-          this.timeMinute = minute;
-          this.timeSecond = second;
-          this.viewModel.updateConfig(this.buildConfig());
+      // 点按弹出系统 TimePickerDialog（24 小时制、时/分/秒）。
+      // 不用内联 TimePicker：内联选择器竖排滚动、行高固定，卡片会多占约 200vp，
+      // 且用户改一次时间要点三次（时/分/秒各滑一次）；弹窗方式与「结束日期」的
+      // DatePickerDialog 保持一致，也符合系统应用的交互习惯。
+      Row({ space: 6 }) {
+        Text(this.timeText())
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+        SymbolGlyph($r('sys.symbol.chevron_down'))
+          .fontSize(14)
+          .fontColor([$r('app.color.text_secondary')])
+      }
+      .padding({ left: 14, right: 12 })
+      .height(38)
+      .borderRadius(19)
+      .backgroundColor($r('app.color.card_surface'))
+      .border({ width: 1, color: $r('app.color.outline_variant') })
+      .opacity(this.viewModel.running ? 0.5 : 1)
+      .onClick(() => {
+        if (!this.viewModel.running) {
+          this.pickTime();
         }
       })
+
       Text('每次跑步自动加入 ±10 分钟 / ±30 秒随机波动')
         .fontSize(11)
         .fontColor($r('app.color.text_secondary'))
     }
     .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 弹出系统时间选择器（24 小时制、时/分/秒） */
+  private pickTime(): void {
+    // TimePickerFormat / TimePickerResult 是组件模块的全局类型（与 SelectOption 同理），
+    // 未从 @kit.ArkUI 导出，无需也不能显式 import。
+    const selected = new Date(2026, 0, 1, this.timeHour, this.timeMinute, this.timeSecond);
+    TimePickerDialog.show({
+      selected: selected,
+      format: TimePickerFormat.HOUR_MINUTE_SECOND,
+      useMilitaryTime: true,
+      onAccept: (value: TimePickerResult): void => {
+        if (value.second === undefined) {
+          return;
+        }
+        this.timeHour = value.hour;
+        this.timeMinute = value.minute;
+        this.timeSecond = value.second;
+        this.viewModel.updateConfig(this.buildConfig());
+      }
+    });
+  }
+
+  /** 开始时间展示文案（HH:MM:SS） */
+  private timeText(): string {
+    return `${pad(this.timeHour)}:${pad(this.timeMinute)}:${pad(this.timeSecond)}`;
   }
 
   @Builder
@@ -692,20 +733,24 @@ export struct RunScreen {
                 .fontColor($r('app.color.text_primary'))
                 .margin({ left: 4, bottom: 4 })
               // 带交互控件的三行用自绘 SettingCard：控件列由 ArkUI 正常测量，
-              // 胶囊组按真实可用宽度换行，不会溢出卡片（详见 CommonComponents.ets）。
-              // 需要宽控件的行用 fullWidth（标签移到上方），否则 Text 的 64vp 最小宽度
-              // 会把控件列挤到约 280vp，8 个胶囊只能排 3 行。
-              SettingCard({
-                label: '跑步次数',
-                symbol: $r('sys.symbol.calendar'),
-                fullWidth: true
-              }) {
+              // 控件不会溢出卡片（详见 CommonComponents.ets）。
+              // 图标列宽度固定且居中，非 fullWidth 行的标签左边缘与 HdsListItemCard（结束日期）对齐。
+              SettingCard({ label: '跑步次数', symbol: $r('sys.symbol.repeat') }) {
                 this.DaysSelector()
               }
               SettingCard({ label: '开始时间', symbol: $r('sys.symbol.clock') }) {
                 this.TimeSelector()
               }
-              HdsListItemCard(this.dateCardOptions())
+              SettingCard({
+                label: '结束日期',
+                symbol: $r('sys.symbol.calendar'),
+                valueText: this.dateText
+              })
+                .onClick((): void => {
+                  if (!this.viewModel.running) {
+                    this.pickDate();
+                  }
+                })
               SettingCard({
                 label: '目标距离',
                 symbol: $r('sys.symbol.figure_run'),

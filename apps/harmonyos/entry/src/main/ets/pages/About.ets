@@ -2,6 +2,7 @@ import { promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination } from '@kit.UIDesignKit';
 import { ImmersiveMaterialHelper } from '../common/ImmersiveMaterialHelper';
+import { HDS_MINI_TITLE_BAR_HEIGHT } from '../view/CommonComponents';
 import { AppConfig } from '../config/AppConfig';
 import { UpdateChecker, UpdateResult, UpdateResultKind, ReleaseInfo } from '../service/UpdateChecker';
 
@@ -162,6 +163,11 @@ export struct AboutPage {
               .lineHeight(20)
               .fontColor($r('app.color.text_secondary'))
               .width('100%')
+            Text(AppConfig.HARMONYOS_CREDITS)
+              .fontSize(12)
+              .lineHeight(20)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
           }
           .width('100%')
           .padding(16)
@@ -238,7 +244,9 @@ export struct AboutPage {
             .padding({ left: 8, right: 8 })
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 16, bottom: 32 })
+        // top 额外叠加 HdsNavigation 标题栏高度（MINI 模式 56vp）：titleBar 是悬浮层覆盖在
+        // 内容上方，不留出等高空间时首屏内容会顶到返回栏下面（官方示例要求预留）。
+        .padding({ left: 16, right: 16, top: HDS_MINI_TITLE_BAR_HEIGHT + 16, bottom: 32 })
       }
       .scrollable(ScrollDirection.Vertical)
       .scrollBar(BarState.Off)

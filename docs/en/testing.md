@@ -123,9 +123,9 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 
 **Parameters**
 
-- [ ] Runs offers 1/3/5/7/10/15/30; picking "自定义" and typing `0` / `31` clamps back into 1–30
-- [ ] Start time edits hour/minute/second; hour caps at 23, minute and second at 59
-- [ ] End date is selectable and defaults to yesterday
+- [ ] The Runs dropdown offers 1/3/5/7/10/15/30; picking "自定义…" and typing `0` / `31` clamps back into 1–30
+- [ ] Tapping the start time opens a 24-hour hour/minute/second picker; changing a value and confirming fills it back in (hour caps at 23, minute and second at 59)
+- [ ] The whole end-date row is tappable, opens the date picker, and defaults to yesterday
 - [ ] Distance slider spans 1–5 km and the displayed value follows the drag
 
 **Routes**
@@ -146,7 +146,8 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 
 **About and updates**
 
-- [ ] The About page shows version `v4.5.0`, the disclaimer and the project credits
+- [ ] The About page shows version `v4.5.0`, the disclaimer and the project credits (including "鸿蒙版维护：Github@AetherWish")
+- [ ] Entering the About page does not jam the content against the back bar: there is a safe area below the back icon and the "关于" title, and the first screen is not covered by the title bar
 - [ ] "检查更新" reports either "已是最新版本" or "发现新版本"; on a weak network it shows "检查更新失败：…"
 - [ ] The "仓库" and "水源" buttons open the browser
 
