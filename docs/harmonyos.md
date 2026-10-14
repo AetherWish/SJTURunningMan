@@ -87,7 +87,7 @@
 | 快捷登录 | 支持交我办 | 不支持，仅 JAccount 网页登录 |
 | 权限 | INTERNET / ACCESS_NETWORK_STATE / READ_PHONE_STATE | INTERNET / GET_NETWORK_INFO |
 | 参数范围 | 1–30 次 / 1–5 km | 同安卓 |
-| 界面组件 | Material 3 (Compose) | HarmonyOS Design 组件 + 沉浸光感 |
+| 界面组件 | Material 3 (Compose) | HarmonyOS Design 组件 + 沉浸光感（带控件的参数行改为原生自绘卡片，见第 8 节） |
 | 路线资源 | `route_design.html`（百度地图） | 同一份资源，另存一份（桥接对象仍名为 `AndroidInterface`） |
 | 关于 / 更新 | 对话框 | 独立「关于」页 |
 | 路线预览配色 | Material 主题色 | 与地图同源的固定蓝橙配色（`RoutePreviewCanvas.ets`） |
@@ -116,6 +116,21 @@ DistanceSliderBuilder() {
 
 > 验证方法：构建后查看 `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` 下的
 > 中间产物 `.ts` 文件，确认组件被重写成 `new Foo(this, {...})`；仍是裸调用 `Foo({...})` 就一定会崩。
+
+**HDS 卡片的自定义后缀不参与尺寸测量。** `HdsListItemCard` 的 `suffixItem` 只接受
+`SuffixCustomBuilder`，其后缀内容既不参与卡片的宽度分配、也不参与高度测量：实测把 8 个
+`ChoiceChips` 放进后缀区时，卡片高度仍是按 `SuffixText` 固定行高算出的 64vp，后缀里的
+`Flex` 却按“屏幕宽度”换行并向上溢出，胶囊被画到卡片外、与上一张卡片的按钮重叠。
+
+因此**带交互控件的参数行不要放进 `HdsListItemCard` 的后缀**，改用原生 ArkUI 自绘卡片
+（`apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets` 的 `SettingCard`）：卡片外观
+（`card_surface` 底色、16vp 圆角、16vp 内边距、42vp 图标列 + 22vp 系统符号）与 `HdsListItemCard`
+对齐，控件列用 `layoutWeight(1)` / 100% 宽度交给 ArkUI 正常测量，尺寸自适应。
+纯静态的信息行（如结束日期）仍继续使用 `HdsListItemCard`。
+
+> 需要宽控件的行（跑步次数胶囊组、目标距离滑杆）用 `SettingCard` 的 `fullWidth` 模式，
+> 把标签移到控件上方：ArkUI 的 `Text` 有 64vp 的最小宽度且不随内容收缩，并排布局下标签列
+> 会吃掉约 280vp，胶囊组只能排成 3 行。
 
 **相邻同类型参数的实参顺序写反，静态检查不会报错。** `generate()` 的前两个数字参数是
 `targetDistanceM`（米）与 `startTimeMs`（毫秒时间戳），两者都是 `number`，把实参写反照样编译通过。

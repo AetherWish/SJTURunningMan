@@ -5,7 +5,9 @@
  *
  * HarmonyOS 系统应用风格适配：图标统一使用 HarmonyOS Symbol 系统符号
  * （SymbolGlyph / $r('sys.symbol.*')），不再使用 emoji 占位。
- * 参数配置行已改用 HDS 原生组件 HdsListItemCard（见 RunScreen.ets）。
+ * 静态信息行使用 HDS 原生组件 HdsListItemCard（见 RunScreen.ets）；
+ * 带交互控件的参数行改用本文件的自绘 SettingCard —— HdsListItemCard 的自定义
+ * 后缀构建器不参与尺寸测量，控件会溢出卡片（详见 HDS_CARD_RADIUS 处的说明）。
  */
 import {
   PrefixIcon,
@@ -26,6 +28,25 @@ import {
  * 否则标题栏会遮挡卡片/按钮等控件（官方示例以 Blank().height(标题栏高度) 作为滚动内容首元素实现避让）。
  */
 export const HDS_MINI_TITLE_BAR_HEIGHT: number = 56;
+
+/**
+ * 任务设置卡片（自绘，视觉对齐 HdsListItemCard）的几何常量，单位 vp。
+ *
+ * 为什么自绘：HdsListItemCard 的 suffixItem 只接受 Builder（SuffixCustomBuilder），
+ * 该自定义构建器的内容不参与卡片的尺寸测量 —— 实测把 8 个 ChoiceChips 放进后缀区时，
+ * 卡片高度仍是 64vp（按 SuffixText 的固定行高），内部 Flex 却按屏宽排版并溢出卡片
+ * （胶囊画到了卡片外、与上一张卡片的按钮重叠）。给后缀内容显式设宽度只解决了横向溢出，
+ * 纵向仍需给卡片写死高度。这里改用原生 Column 自绘卡片：内容由 ArkUI 正常测量，
+ * 尺寸自适应，不再需要估算高度。
+ */
+export const HDS_CARD_RADIUS: number = 16;
+export const HDS_CARD_PADDING: number = 16;
+/** 前缀图标列宽度（HdsListItemCard 实测为 84px / 42vp） */
+export const HDS_ICON_COLUMN: number = 42;
+/** 前缀图标字号（HdsListItemCard 实测为 22vp） */
+export const HDS_ICON_SIZE: number = 22;
+/** 文本列到后缀列的间距 */
+export const HDS_TEXT_SUFFIX_GAP: number = 8;
 
 /**
  * HdsListItemCard 文本区的本地结构声明。
@@ -82,6 +103,89 @@ export function toSelectOptions(values: string[]): SelectOption[] {
     options.push(option);
   }
   return options;
+}
+
+/**
+ * 带交互控件的参数行卡片（视觉对齐 HdsListItemCard，尺寸由 ArkUI 正常测量）。
+ *
+ * 用途与理由见文件头与 HDS_CARD_RADIUS 的说明：HdsListItemCard 的自定义后缀
+ * 不参与测量，控件会溢出卡片；本组件用原生 Row/Column 复刻其外观，
+ * 左侧系统符号 + 标签文本，右侧 @BuilderParam 承载任意控件（胶囊组/时间输入/滑杆）。
+ *
+ * fullWidth：控件横向占满整张卡片（标签移到控件上方）。
+ * 原因：ArkUI 的 Text 有 64vp 的最小宽度且不随内容收缩，并排布局下即便卡片很宽，
+ * 标签列也会吃掉一截，胶囊组只能拿到约 280vp —— 实测 8 个胶囊被迫换到 3 行。
+ * 需要宽控件的行（跑步次数/目标距离）用 fullWidth，控件拿满 ~500vp，胶囊一行放下。
+ */
+@Component
+export struct SettingCard {
+  /** 标签文本 */
+  label: string = '';
+  /** 左侧系统符号（不传则不渲染图标列） */
+  symbol: Resource | undefined = undefined;
+  /** 控件是否横向占满卡片（标签移到上方） */
+  fullWidth: boolean = false;
+  /** 卡片主体内容 */
+  @BuilderParam control: () => void;
+
+  build() {
+    if (this.fullWidth) {
+      Column() {
+        Row() {
+          if (this.symbol !== undefined) {
+            SymbolGlyph(this.symbol)
+              .fontSize(HDS_ICON_SIZE)
+              .fontColor([$r('app.color.brand_primary')])
+              .margin({ right: HDS_TEXT_SUFFIX_GAP })
+          }
+          Text(this.label)
+            .fontSize(16)
+            .fontColor($r('app.color.text_primary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Column() {
+          this.control()
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .margin({ top: 12 })
+      }
+      .width('100%')
+      .padding(HDS_CARD_PADDING)
+      .borderRadius(HDS_CARD_RADIUS)
+      .backgroundColor($r('app.color.card_surface'))
+    } else {
+      Row() {
+        if (this.symbol !== undefined) {
+          Column() {
+            SymbolGlyph(this.symbol)
+              .fontSize(HDS_ICON_SIZE)
+              .fontColor([$r('app.color.brand_primary')])
+          }
+          .width(HDS_ICON_COLUMN)
+          .alignItems(HorizontalAlign.Start)
+        }
+
+        Text(this.label)
+          .fontSize(16)
+          .fontColor($r('app.color.text_primary'))
+          .margin({ right: HDS_TEXT_SUFFIX_GAP })
+
+        Column() {
+          this.control()
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .padding(HDS_CARD_PADDING)
+      .borderRadius(HDS_CARD_RADIUS)
+      .backgroundColor($r('app.color.card_surface'))
+      .alignItems(VerticalAlign.Center)
+    }
+  }
 }
 
 /**

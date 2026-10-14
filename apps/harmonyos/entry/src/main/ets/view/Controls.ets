@@ -10,7 +10,7 @@
  *    无装饰器的普通成员仅在构造时赋值一次，父组件重渲染不会同步。
  *    回调函数保持普通成员（闭包捕获父组件 this，无需同步）。
  */
-import { ColorMetrics } from '@kit.ArkUI';
+import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
 import { toSelectOptions } from './CommonComponents';
 
 /** 时/分/秒上限（等价 Android TimeField 的 coerceIn） */
@@ -46,7 +46,7 @@ export struct NumberField {
   @Prop label: string = '';
   /** 最大输入长度 */
   @Prop maxLength: number = 3;
-  /** 字段宽度（vp） */
+  /** 字段宽度（vp）；0 表示占满父容器可用宽度 */
   @Prop fieldWidth: number = 64;
   @Prop isEnabled: boolean = true;
   /** 数值变化回调（已过滤非数字） */
@@ -64,7 +64,7 @@ export struct NumberField {
       TextInput({ text: this.value.toString() })
         .type(InputType.Number)
         .maxLength(this.maxLength)
-        .width(this.fieldWidth)
+        .width(this.fieldWidth > 0 ? this.fieldWidth : '100%')
         .height(FIELD_HEIGHT)
         .borderRadius(FIELD_RADIUS)
         .border({ width: FIELD_BORDER, color: $r('app.color.outline_variant') })
@@ -100,49 +100,59 @@ export struct TimeField {
 
   build() {
     Row() {
-      NumberField({
-        value: this.hour,
-        label: '时',
-        maxLength: 2,
-        fieldWidth: 62,
-        isEnabled: this.isEnabled,
-        onValueChange: (value: number): void => {
-          this.onChange(clampInt(value, 0, MAX_HOUR), this.minute, this.second);
-        }
-      })
+      // 三等分可用宽度：fieldWidth 为固定 vp（单独使用时的默认宽度），
+      // 放进 Row 时用 layoutWeight(1) 让三个输入框均分剩余空间，
+      // 否则固定宽度之和会超过卡片内容宽度（实测秒输入框溢出卡片右边缘 107px）。
+      Column() {
+        NumberField({
+          value: this.hour,
+          label: '时',
+          maxLength: 2,
+          isEnabled: this.isEnabled,
+          onValueChange: (value: number): void => {
+            this.onChange(clampInt(value, 0, MAX_HOUR), this.minute, this.second);
+          }
+        })
+      }
+      .layoutWeight(1)
 
       Text(':')
         .fontSize(16)
         .fontColor($r('app.color.text_secondary'))
         .margin({ left: 4, right: 4, bottom: 9 })
 
-      NumberField({
-        value: this.minute,
-        label: '分',
-        maxLength: 2,
-        fieldWidth: 62,
-        isEnabled: this.isEnabled,
-        onValueChange: (value: number): void => {
-          this.onChange(this.hour, clampInt(value, 0, MAX_MINUTE), this.second);
-        }
-      })
+      Column() {
+        NumberField({
+          value: this.minute,
+          label: '分',
+          maxLength: 2,
+          isEnabled: this.isEnabled,
+          onValueChange: (value: number): void => {
+            this.onChange(this.hour, clampInt(value, 0, MAX_MINUTE), this.second);
+          }
+        })
+      }
+      .layoutWeight(1)
 
       Text(':')
         .fontSize(16)
         .fontColor($r('app.color.text_secondary'))
         .margin({ left: 4, right: 4, bottom: 9 })
 
-      NumberField({
-        value: this.second,
-        label: '秒',
-        maxLength: 2,
-        fieldWidth: 62,
-        isEnabled: this.isEnabled,
-        onValueChange: (value: number): void => {
-          this.onChange(this.hour, this.minute, clampInt(value, 0, MAX_SECOND));
-        }
-      })
+      Column() {
+        NumberField({
+          value: this.second,
+          label: '秒',
+          maxLength: 2,
+          isEnabled: this.isEnabled,
+          onValueChange: (value: number): void => {
+            this.onChange(this.hour, this.minute, clampInt(value, 0, MAX_SECOND));
+          }
+        })
+      }
+      .layoutWeight(1)
     }
+    .width('100%')
     .alignItems(VerticalAlign.Bottom)
   }
 }
@@ -203,17 +213,30 @@ export struct DistanceSlider {
 /**
  * 选项胶囊组（等价 Android ChoiceChips）
  * 自动换行；选中项用 brand_primary_container 底色 + brand_primary 边框。
+ *
+ * availableWidth 默认 '100%'：放在 SettingCard（原生布局容器，宽度参与测量）
+ * 的控件列里时按父容器实际宽度换行。
+ * 注意不要把它放进 HdsListItemCard 的 suffixItem —— 该后缀只接收 Builder，
+ * 内容不参与卡片宽度分配，未显式设置宽度时 Flex 会以“屏幕宽度”作为换行基准，
+ * 胶囊会溢出卡片右边缘（详见 CommonComponents.ets 中 SettingCard 的说明）。
  */
 @Component
 export struct ChoiceChips {
   @Prop options: string[] = [];
   @Prop selected: string = '';
   @Prop isEnabled: boolean = true;
+  /** 可用宽度，默认占满父容器 */
+  @Prop availableWidth: Length = '100%';
   onSelect: (value: string) => void = (value: string) => {
   };
 
   build() {
-    Flex({ wrap: FlexWrap.Wrap }) {
+    Flex({
+      wrap: FlexWrap.Wrap,
+      justifyContent: FlexAlign.Start,
+      // 行间距 8vp（主/交叉轴间距，等价 chip 自身的 margin，避免用 margin 累加出误差）
+      space: { main: LengthMetrics.vp(0), cross: LengthMetrics.vp(8) }
+    }) {
       ForEach(this.options, (option: string) => {
         Row() {
           Text(option)
@@ -224,7 +247,7 @@ export struct ChoiceChips {
               : $r('app.color.text_primary'))
         }
         .height(34)
-        .padding({ left: 14, right: 14 })
+        .padding({ left: 12, right: 12 })
         .borderRadius(17)
         .backgroundColor(option === this.selected
           ? $r('app.color.brand_primary_container')
@@ -233,7 +256,7 @@ export struct ChoiceChips {
           width: FIELD_BORDER,
           color: option === this.selected ? $r('app.color.brand_primary') : $r('app.color.outline_variant')
         })
-        .margin({ right: 8, bottom: 8 })
+        .margin({ right: 6 })
         .opacity(this.isEnabled ? 1 : 0.5)
         .onClick(() => {
           if (this.isEnabled) {
@@ -242,7 +265,7 @@ export struct ChoiceChips {
         })
       }, (option: string) => option)
     }
-    .width('100%')
+    .width(this.availableWidth)
   }
 }
 

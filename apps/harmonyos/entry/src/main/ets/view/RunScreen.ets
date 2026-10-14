@@ -1,6 +1,6 @@
 import { promptAction } from '@kit.ArkUI';
 import { uiMaterial } from '@kit.ArkUI';
-import { HdsListItemCard, SuffixCustomBuilder, SuffixText } from '@kit.UIDesignKit';
+import { HdsListItemCard, SuffixText } from '@kit.UIDesignKit';
 import { MainViewModel, RunConfig } from '../viewmodel/MainViewModel';
 import { RouteConflict, RouteDecision, RoutePreview, TrackSample } from '../viewmodel/TaskModels';
 import { RouteInfo } from '../model/RouteInfo';
@@ -8,6 +8,7 @@ import {
   hdsPrefixIcon,
   hdsLabelItem,
   HdsCardOptions,
+  SettingCard,
   HDS_MINI_TITLE_BAR_HEIGHT
 } from './CommonComponents';
 import { ChoiceChips, DistanceSlider, MenuDropdown, MenuOption, NumberField, SectionDivider, TimeField } from './Controls';
@@ -100,31 +101,11 @@ export struct RunScreen {
 
   // ==================== 卡片选项 ====================
 
-  /** 1. 跑步次数（对应安卓“任务设置”内的 ChoiceChips + 自定义 NumberField） */
-  private daysCardOptions(): HdsCardOptions {
-    const options: HdsCardOptions = {
-      prefixItem: hdsPrefixIcon($r('sys.symbol.calendar')),
-      textItem: hdsLabelItem('跑步次数'),
-      suffixItem: new SuffixCustomBuilder((): void => {
-        this.DaysSelector()
-      })
-    };
-    return options;
-  }
-
-  /** 2. 开始时间（时/分/秒，自动加入 ±10 分钟 / ±30 秒随机波动） */
-  private timeCardOptions(): HdsCardOptions {
-    const options: HdsCardOptions = {
-      prefixItem: hdsPrefixIcon($r('sys.symbol.clock')),
-      textItem: hdsLabelItem('开始时间'),
-      suffixItem: new SuffixCustomBuilder((): void => {
-        this.TimeSelector()
-      })
-    };
-    return options;
-  }
-
-  /** 3. 结束日期（整行点击弹出日历选择） */
+  /**
+   * 结束日期（静态信息行，继续使用 HDS 原生 HdsListItemCard）。
+   * 带交互控件的三行（跑步次数/开始时间/目标距离）改用自绘 SettingCard：
+   * HdsListItemCard 的自定义后缀不参与尺寸测量，控件会溢出卡片。
+   */
   private dateCardOptions(): HdsCardOptions {
     const options: HdsCardOptions = {
       prefixItem: hdsPrefixIcon($r('sys.symbol.calendar')),
@@ -139,23 +120,11 @@ export struct RunScreen {
     return options;
   }
 
-  /** 4. 目标距离（1.0-5.0km，0.1km 步进） */
-  private distanceCardOptions(): HdsCardOptions {
-    const options: HdsCardOptions = {
-      prefixItem: hdsPrefixIcon($r('sys.symbol.figure_run')),
-      textItem: hdsLabelItem('目标距离'),
-      suffixItem: new SuffixCustomBuilder((): void => {
-        this.DistanceSliderBuilder()
-      })
-    };
-    return options;
-  }
-
   /**
-   * 目标距离滑杆（供 HdsListItemCard 的 suffix 自定义构建器使用）。
+   * 目标距离滑杆（SettingCard 控件列内容）。
    *
    * 必须在 @Builder 方法里调用自定义组件：直接把 `DistanceSlider({...})` 写在
-   * SuffixCustomBuilder 的箭头函数里，ArkTS 编译器不会把该调用重写成
+   * 传给组件的箭头函数里，ArkTS 编译器不会把该调用重写成
    * `new DistanceSlider(this, {...})`，运行时会抛出
    * `TypeError: class constructor cannot called without 'new'`（真机 nova 12 Ultra 崩溃）。
    */
@@ -344,7 +313,7 @@ export struct RunScreen {
           value: this.days,
           label: '次数 1-30',
           maxLength: 2,
-          fieldWidth: 110,
+          fieldWidth: 96,
           isEnabled: !this.viewModel.running,
           onValueChange: (value: number): void => {
             this.customDaysText = `${value}`;
@@ -692,10 +661,15 @@ export struct RunScreen {
    */
 
   build() {
-    Stack({ alignContent: Alignment.Bottom }) {
+    // 外层 Stack 只用于承载路线距离提醒的全屏遮罩（被打开时同时盖住底部操作栏）。
+    Stack() {
+      // 根容器用 Column 而非 Stack：底部操作栏必须是滚动区的“兄弟节点”并占据自身高度，
+      // 这样 Scroll 只能分到剩余空间（layoutWeight(1)）。之前用 Stack 悬浮覆盖时，
+      // Stack 会把 Scroll 撑满，滚动内容长期被操作栏遮住，用户以为“按钮没置底”。
       Column() {
         Scroll() {
-          Column({ space: 14 }) {            // ===== 状态卡 =====
+          Column({ space: 14 }) {
+            // ===== 状态卡 =====
             StatusCard({
               progress: this.viewModel.progress,
               headline: `${this.days} 次 · ${this.distanceKm.toFixed(1)} km`,
@@ -717,10 +691,28 @@ export struct RunScreen {
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('app.color.text_primary'))
                 .margin({ left: 4, bottom: 4 })
-              HdsListItemCard(this.daysCardOptions())
-              HdsListItemCard(this.timeCardOptions())
+              // 带交互控件的三行用自绘 SettingCard：控件列由 ArkUI 正常测量，
+              // 胶囊组按真实可用宽度换行，不会溢出卡片（详见 CommonComponents.ets）。
+              // 需要宽控件的行用 fullWidth（标签移到上方），否则 Text 的 64vp 最小宽度
+              // 会把控件列挤到约 280vp，8 个胶囊只能排 3 行。
+              SettingCard({
+                label: '跑步次数',
+                symbol: $r('sys.symbol.calendar'),
+                fullWidth: true
+              }) {
+                this.DaysSelector()
+              }
+              SettingCard({ label: '开始时间', symbol: $r('sys.symbol.clock') }) {
+                this.TimeSelector()
+              }
               HdsListItemCard(this.dateCardOptions())
-              HdsListItemCard(this.distanceCardOptions())
+              SettingCard({
+                label: '目标距离',
+                symbol: $r('sys.symbol.figure_run'),
+                fullWidth: true
+              }) {
+                this.DistanceSliderBuilder()
+              }
             }
             .width('100%')
 
@@ -731,32 +723,34 @@ export struct RunScreen {
             this.DisclaimerNotice()
           }
           .width('100%')
-          // 四边统一内边距：top 额外叠加 HdsNavigation MINI 标题栏高度（56vp）——
-          // titleBar 为悬浮层覆盖在内容上方，官方示例要求内容首部预留等高空间避让；
-          // bottom 为底部操作栏预留空间。
+          // 三边内边距：top 额外叠加 HdsNavigation MINI 标题栏高度（56vp）——
+          // titleBar 为悬浮层覆盖在内容上方，官方示例要求内容首部预留等高空间避让。
+          // bottom 只留常规间距：底部操作栏现在是兄弟节点、已占走自身高度，不再需要预留 120vp。
           .padding({
             left: 16,
             right: 16,
             top: HDS_MINI_TITLE_BAR_HEIGHT + 16,
-            bottom: 120
+            bottom: 16
           })
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Off)
         .width('100%')
-        .height('100%')
+        .layoutWeight(1)
+
+        // ===== 底部操作栏 =====
+        // 紧贴窗口底部，只保留 8vp 与系统手势条的间距（Navigation 已把内容限制在安全区内）。
+        // 之前这里 padding bottom 64 是给 HdsTabs 悬浮页签预留的，页签已删除，于是底部空出 90vp。
+        Column() {
+          this.BottomActionBar()
+        }
+        .width('100%')
+        .padding({ bottom: 8 })
       }
       .width('100%')
       .height('100%')
 
-      // ===== 底部操作栏 =====
-      Column() {
-        this.BottomActionBar()
-      }
-      .width('100%')
-      .padding({ bottom: 64 })
-
-      // ===== 路线距离提醒（三选一，覆盖底部操作栏） =====
+      // ===== 路线距离提醒（三选一，全屏遮罩，覆盖底部操作栏） =====
       if (this.conflictDialogVisible) {
         this.RouteConflictDialog()
       }

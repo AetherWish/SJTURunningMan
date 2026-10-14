@@ -119,6 +119,23 @@ DistanceSliderBuilder() {
 > `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` and confirm the component became
 > `new Foo(this, {...})`. A bare `Foo({...})` call there will always crash.
 
+**A custom suffix on an HDS card does not take part in size measurement.** `HdsListItemCard`'s `suffixItem`
+accepts only a `SuffixCustomBuilder`, and that suffix contributes neither to the card's width allocation nor to
+its height measurement. Measured: with eight `ChoiceChips` in the suffix, the card stayed 64vp tall (the fixed
+`SuffixText` line height) while the `Flex` inside wrapped against the *screen* width and grew upwards, drawing
+the chips outside the card and on top of the previous card's buttons.
+
+So **never put an interactive control row in a `HdsListItemCard` suffix**. Use a plain ArkUI card instead — the
+`SettingCard` in `apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets`: it matches the HDS card look
+(`card_surface` background, 16vp radius, 16vp padding, a 42vp icon column with a 22vp system symbol) while the
+control column uses `layoutWeight(1)` / full width and is measured normally by ArkUI. Purely static rows (for
+example the end date) still use `HdsListItemCard`.
+
+> Rows that need a wide control (the run-count chips, the target-distance slider) pass `fullWidth` to
+> `SettingCard`, which moves the label above the control: ArkUI's `Text` has a 64vp minimum width and does not
+> shrink to its content, so a side-by-side layout costs the label column about 280vp and wraps the chips onto
+> three rows.
+
 **Swapping two adjacent arguments of the same type is not caught statically.** The first two numeric
 parameters of `generate()` are `targetDistanceM` (metres) and `startTimeMs` (a millisecond timestamp); both are
 `number`, so reversing them still compiles. That is how `Date.now()` once reached the algorithm as the target
