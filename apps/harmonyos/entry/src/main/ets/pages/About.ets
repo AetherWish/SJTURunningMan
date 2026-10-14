@@ -249,7 +249,7 @@ export struct AboutPage {
         .padding({ left: 16, right: 16, top: HDS_MINI_TITLE_BAR_HEIGHT + 16, bottom: 32 })
       }
       .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Off)
+      .scrollBar(BarState.Auto)
       .width('100%')
       .height('100%')
       .align(Alignment.Top)

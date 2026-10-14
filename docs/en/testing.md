@@ -124,9 +124,12 @@ After changing HarmonyOS code, build once with hvigor (see [build.md](./build.md
 **Parameters**
 
 - [ ] The Runs dropdown offers 1/3/5/7/10/15/30; picking "自定义…" and typing `0` / `31` clamps back into 1–30
+- [ ] After picking "自定义…" the dropdown itself reads 自定义 and the number field appears next to it (no extra empty button)
 - [ ] Tapping the start time opens a 24-hour hour/minute/second picker; changing a value and confirming fills it back in (hour caps at 23, minute and second at 59)
+- [ ] Tapping the ⓘ icon next to the start-time label explains the jitter rule
 - [ ] The whole end-date row is tappable, opens the date picker, and defaults to yesterday
-- [ ] Distance slider spans 1–5 km and the displayed value follows the drag
+- [ ] Distance slider spans 1–5 km; dragging updates both the value on the slider and the "距离" stat card at the top, and the value is left-aligned with the "目标距离" label
+- [ ] A scrollbar appears on the home page and the About page while scrolling and fades out when idle
 
 **Routes**
 

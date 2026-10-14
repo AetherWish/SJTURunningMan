@@ -75,30 +75,61 @@ export struct NumberField {
  */
 @Component
 export struct DistanceSlider {
+  /**
+   * 单向值绑定。父组件是唯一数据源：滑杆只负责上报新值（onDistanceChange），
+   * 由父组件改自己的 @State 后再流回这里，避免父子各持一份值而显示不一致。
+   */
   @Prop distanceKm: number = 1;
   @Prop minDistanceKm: number = 1;
   @Prop maxDistanceKm: number = 5;
   @Prop isEnabled: boolean = true;
+  /**
+   * 显示「数值 + 上限」信息行：
+   * - true（默认）：数值行画在滑杆上方（独立使用时的布局）
+   * - false：与 SettingCard 的标签行并排使用，数值行缩进 valueIndent 后与标签左对齐
+   */
+  @Prop showValueRow: boolean = true;
+  /** 数值行左缩进（vp）：SettingCard 布局下传「图标列 + 标签列」宽度，使数值与标签左对齐 */
+  @Prop valueIndent: number = 0;
   onDistanceChange: (v: number) => void = (v: number) => {
   };
 
   build() {
     Column() {
-      Row() {
-        Text(this.distanceKm.toFixed(1))
-          .fontSize(19)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.brand_primary'))
-        Text(' km')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
-        Blank()
-        Text(`上限 ${Math.trunc(this.maxDistanceKm)}km`)
-          .fontSize(11)
-          .fontColor($r('app.color.text_secondary'))
+      if (!this.showValueRow) {
+        // SettingCard 布局：数值与上限同一行，画在滑杆上方（紧贴标签行下方）。
+        // 关键点：数值由本组件自己读取 @Prop 渲染 —— 父组件状态变化时本组件必然重建，
+        // 读数不会滞后（把同样的文本放在父组件的 headerTrailing 里会读到旧值）。
+        Row() {
+          Text(`${this.distanceKm.toFixed(1)} km`)
+            .fontSize(19)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.brand_primary'))
+          Blank()
+          Text(`上限 ${Math.trunc(this.maxDistanceKm)}km`)
+            .fontSize(11)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Bottom)
+        .margin({ left: this.valueIndent, bottom: 4 })
+      } else {
+        Row() {
+          Text(this.distanceKm.toFixed(1))
+            .fontSize(19)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.brand_primary'))
+          Text(' km')
+            .fontSize(14)
+            .fontColor($r('app.color.text_secondary'))
+          Blank()
+          Text(`上限 ${Math.trunc(this.maxDistanceKm)}km`)
+            .fontSize(11)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Bottom)
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Bottom)
 
       Slider({
         value: this.distanceKm,
@@ -122,8 +153,7 @@ export struct DistanceSlider {
   }
 }
 
-/** 分组分隔线（等价 Android SectionDivider） */
-@Component
+/** 分组分隔线（等价 Android SectionDivider） */@Component
 export struct SectionDivider {
   build() {
     Divider()

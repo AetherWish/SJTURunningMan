@@ -41,13 +41,13 @@ The main screen has **no bottom tab bar**: the title ("开润") sits on the same
 
 | Parameter | Range | Default | Notes |
 | --- | --- | --- | --- |
-| Runs | 1–30 | 1 | Dropdown with 1/3/5/7/10/15/30, or "自定义…" to type a number |
-| Start time | hour 0–23 / minute 0–59 / second 0–59 (i.e. 00:00:00–23:59:59) | 08:00:00 | Tapping opens the system time picker (24-hour, three columns); each record gets a random **±10 min / ±30 s** jitter |
+| Runs | 1–30 | 1 | Dropdown with 1/3/5/7/10/15/30, or "自定义…" to type a number (the control then reads 自定义) |
+| Start time | hour 0–23 / minute 0–59 / second 0–59 (i.e. 00:00:00–23:59:59) | 08:00:00 | Tapping opens the system time picker (24-hour, three columns); each record gets a random **±10 min / ±30 s** jitter (the explanation is folded behind the ⓘ icon next to the label) |
 | End date | Date picker | Yesterday | Records are generated backwards from this date; tapping the whole row opens the picker |
-| Distance | 1–5 km | 4 km | Per-record target distance, slider step 0.1 km |
+| Distance | 1–5 km | 4 km | Per-record target distance, slider step 0.1 km; the value sits on the line below the "目标距离" label, left-aligned with it |
 | Route | See below | 思源湖路线 | Dropdown; design a new one on a separate page |
 
-Ranges come from `apps/harmonyos/entry/src/main/ets/config/AppConfig.ets`.
+Ranges come from `apps/harmonyos/entry/src/main/ets/config/AppConfig.ets`. The home page and the About page both use `BarState.Auto` scrollbars (visible while scrolling, then fading out).
 
 Every task-settings row is a hand-rolled `SettingCard` (`apps/harmonyos/entry/src/main/ets/view/CommonComponents.ets`): a symbol column plus a fixed-width label column, so all rows share exactly the same icon and label left edges; the control column is measured normally by ArkUI. For why `HdsListItemCard` is not used for these rows, see section 8.
 
@@ -140,6 +140,16 @@ differ by roughly 21px, because the two icon columns are 84px and 78px wide resp
 > side-by-side layout costs the label column a chunk of width. The `SettingCard` label column must therefore
 > **not be narrower than 64vp**, or four-character labels such as "跑步次数" wrap onto two lines (measured: at
 > 43vp three of the four rows wrapped).
+
+**Never read the slider's value from the parent.** The target-distance readout is rendered by
+`DistanceSlider` itself from its `@Prop distanceKm` (`showValueRow: false` plus
+`valueIndent: SETTING_CONTENT_INDENT`, the "icon column + label column" width, so the value lines up with the
+"目标距离" label). Writing the same text into the `SettingCard` label row reads a stale value: a `@State` write
+issued from inside `@BuilderParam` content does not make the parent rebuild (measured: the slider reported
+`4.400000` while the parent still held `4.0`). Keeping the parent as the single source of truth and letting the
+slider report through `onDistanceChange` is the stable combination; passing a component *method reference*
+(`onDistanceChange: this.onDistanceChange`) makes the app exit as soon as the slider is tapped, so always use an
+arrow function at the call site.
 
 **Swapping two adjacent arguments of the same type is not caught statically.** The first two numeric
 parameters of `generate()` are `targetDistanceM` (metres) and `startTimeMs` (a millisecond timestamp); both are

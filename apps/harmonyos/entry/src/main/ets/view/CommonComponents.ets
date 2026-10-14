@@ -8,6 +8,7 @@
  * 任务设置的每一行都用本文件的自绘 SettingCard：HdsListItemCard 的自定义
  * 后缀构建器不参与尺寸测量，控件会溢出卡片（详见 HDS_CARD_RADIUS 处的说明）。
  */
+import { promptAction } from '@kit.ArkUI';
 
 /**
  * HdsNavigation 在 MINI 标题模式下的标题栏高度（vp）。
@@ -58,6 +59,12 @@ const SETTING_ICON_COLUMN: number = 35;
  *    （实测 43vp 时四行有三行折成两行）。故取 65vp，既满足最小宽度又钉住起点。
  */
 const SETTING_LABEL_WIDTH: number = 65;
+/**
+ * 并排布局下「图标列 + 标签列」的总宽度（vp）。
+ * 控件列里需要与标签左对齐的内容（如目标距离的数值行）用这个值做左缩进，
+ * 不要再自己拼 35 + 65，否则两处常量一改就会错位。
+ */
+export const SETTING_CONTENT_INDENT: number = SETTING_ICON_COLUMN + SETTING_LABEL_WIDTH;
 
 /**
  * 构造 Select 选项数组
@@ -102,6 +109,11 @@ export struct SettingCard {
    */
   valueText: string = '';
   /**
+   * 标签右侧的说明文本，以「圈 i」图标呈现，点按弹出对话框展示全文。
+   * 用途：把占版面的长说明（如随机波动规则）折叠起来，需要时再点开看。
+   */
+  infoText: string = '';
+  /**
    * 自定义前缀（不传则渲染 symbol），只在非 fullWidth 布局下生效：
    * 传值时以该符号 + HDS_STATUS_DOT_COLOR 呈现，用作「必填/已完成」等状态标记。
    */
@@ -126,6 +138,17 @@ export struct SettingCard {
           Text(this.label)
             .fontSize(16)
             .fontColor($r('app.color.text_primary'))
+            .maxLines(1)
+
+          if (this.infoText.length > 0) {
+            SymbolGlyph($r('sys.symbol.info_circle'))
+              .fontSize(16)
+              .fontColor([$r('app.color.text_secondary')])
+              .margin({ left: 6 })
+              .onClick(() => {
+                promptAction.showDialog({ message: this.infoText });
+              })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -167,6 +190,17 @@ export struct SettingCard {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .constraintSize({ minWidth: SETTING_LABEL_WIDTH })
 
+        if (this.infoText.length > 0) {
+          // 说明折叠成「圈 i」：点按弹出全文，避免长说明把卡片撑高
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(16)
+            .fontColor([$r('app.color.text_secondary')])
+            .margin({ left: 6 })
+            .onClick(() => {
+              promptAction.showDialog({ message: this.infoText });
+            })
+        }
+
         if (this.valueText.length > 0) {
           // 静态信息行：值右对齐，与交互行的控件列起点一致
           Text(this.valueText)
@@ -175,11 +209,14 @@ export struct SettingCard {
             .layoutWeight(1)
             .textAlign(TextAlign.End)
         } else {
-          Column() {
+          // 控件右对齐：Row 内先占位再放控件，控件即贴卡片右内边距
+          Row() {
+            Blank()
             this.control()
           }
           .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
+          .justifyContent(FlexAlign.End)
+          .alignItems(VerticalAlign.Center)
         }
       }
       .width('100%')
