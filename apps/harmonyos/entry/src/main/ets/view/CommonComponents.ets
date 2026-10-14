@@ -158,7 +158,9 @@ export struct SettingCard {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
-        .margin({ top: 12 })
+        // 标签行与读数行贴紧：读数由 DistanceReadout 组件渲染（能随滑杆实时刷新），
+        // 它是控件列的首行，把上边距收窄、视觉上就跟在标签后面。
+        .margin({ top: 4 })
       }
       .width('100%')
       .padding(HDS_CARD_PADDING)

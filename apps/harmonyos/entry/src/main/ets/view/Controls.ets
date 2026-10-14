@@ -97,22 +97,16 @@ export struct DistanceSlider {
   build() {
     Column() {
       if (!this.showValueRow) {
-        // SettingCard 布局：数值与上限同一行，画在滑杆上方（紧贴标签行下方）。
-        // 关键点：数值由本组件自己读取 @Prop 渲染 —— 父组件状态变化时本组件必然重建，
-        // 读数不会滞后（把同样的文本放在父组件的 headerTrailing 里会读到旧值）。
+        // SettingCard 布局：读数由 DistanceReadout 渲染在标签行（见该组件）；这里只画滑杆，
+        // 上限提示单独占一行右对齐。
         Row() {
-          Text(`${this.distanceKm.toFixed(1)} km`)
-            .fontSize(19)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.brand_primary'))
           Blank()
           Text(`上限 ${Math.trunc(this.maxDistanceKm)}km`)
             .fontSize(11)
             .fontColor($r('app.color.text_secondary'))
         }
         .width('100%')
-        .alignItems(VerticalAlign.Bottom)
-        .margin({ left: this.valueIndent, bottom: 4 })
+        .margin({ bottom: 2 })
       } else {
         Row() {
           Text(this.distanceKm.toFixed(1))
@@ -150,6 +144,27 @@ export struct DistanceSlider {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+}
+
+/**
+ * 目标距离读数（「4.0 km」）。
+ *
+ * 必须是一个独立组件：读数由本组件读取 @Prop distanceKm 渲染，滑杆拖动时它能刷新；
+ * 若把同样的文本交给父组件渲染（哪怕父组件在 onDistanceChange 里写了 @State），
+ * 读数会停在旧值 —— 在 @BuilderParam 内容里发出的状态写入不会触发父组件重建
+ * （实测父组件渲染的读数停在 4.0，滑杆自身读到的是 1.6）。
+ */
+@Component
+export struct DistanceReadout {
+  @Prop distanceKm: number = 1;
+
+  build() {
+    Text(`${this.distanceKm.toFixed(1)} km`)
+      .fontSize(19)
+      .fontWeight(FontWeight.Bold)
+      .fontColor($r('app.color.brand_primary'))
+      .maxLines(1)
   }
 }
 
