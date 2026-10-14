@@ -477,23 +477,27 @@ export class MainViewModel {
       this.logMsg(LogLevel.ERROR, '路线坐标为空，无法预览');
       return;
     }
-    // 目标距离必须是“公里”量级：这里先做一次量纲自检。
-    // 若上游把其它量纲（例如毫秒/秒时间戳）误写入配置，会打印原始值并在进入轨迹
-    // 生成前拦下，避免 completeLoops 到十亿级把数组撑爆（OutOfMemoryError 闪退）。
+    // 目标距离必须是“公里”量级：这里做一次量纲自检。
+    // 目前 distanceKm 的写入点都已被 DistanceSlider 限制在 1-5km，这道自检是兜底：
+    // 一旦将来又有人把别的量纲（例如毫秒/秒时间戳）写进配置，就在进入轨迹生成前
+    // 拦下并打印原始值，避免 completeLoops 到十亿级把数组撑爆（OutOfMemoryError 闪退）。
     const distanceKm = config !== undefined ? config.distanceKm : AppConfig.DEFAULT_DISTANCE_KM;
     const targetDistanceM = distanceKm * 1000.0;
     if (!Number.isFinite(targetDistanceM)
       || targetDistanceM < AppConfig.MIN_DISTANCE_KM * 1000.0
       || targetDistanceM > AppConfig.MAX_DISTANCE_KM * 1000.0) {
       this.logMsg(LogLevel.ERROR,
-        `目标距离参数异常: 当前值 ${distanceKm}km（应为 ${AppConfig.MIN_DISTANCE_KM}-` +
-        `${Math.trunc(AppConfig.MAX_DISTANCE_KM)}km），请重新设置目标距离后重试`);
+        `内部错误: 目标距离参数异常（原始值 ${distanceKm}），应为 ` +
+        `${AppConfig.MIN_DISTANCE_KM}-${Math.trunc(AppConfig.MAX_DISTANCE_KM)}km；` +
+        `请重新设置目标距离后重试`);
       return;
     }
     const routeName = this.selectedRoute.name;
     try {
-      const outcome = await DataGenerator.generate(coordinates, 'preview', Date.now(),
-        targetDistanceM,
+      // 注意实参顺序必须是 (targetDistanceM, startTimeMs)：移植时曾把两者写反，
+      // 导致毫秒时间戳被当成目标距离（约 1.79e12 m），轨迹生成阶段内存爆炸而闪退。
+      const outcome = await DataGenerator.generate(coordinates, 'preview', targetDistanceM,
+        Date.now(),
         AppConfig.INTERVAL_SECONDS, new PointRules(9, 180, 540), true,
         (level: LogLevel, msg: string) => {
           this.logMsg(level, msg);

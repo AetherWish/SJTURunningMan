@@ -119,6 +119,13 @@ DistanceSliderBuilder() {
 > `entry/build/default/cache/default/default@CompileArkTS/esmodule/debug/` and confirm the component became
 > `new Foo(this, {...})`. A bare `Foo({...})` call there will always crash.
 
+**Swapping two adjacent arguments of the same type is not caught statically.** The first two numeric
+parameters of `generate()` are `targetDistanceM` (metres) and `startTimeMs` (a millisecond timestamp); both are
+`number`, so reversing them still compiles. That is how `Date.now()` once reached the algorithm as the target
+distance (about `1.79e12` m): the loop count needed to cover it climbed into the billions and the preview blew
+the heap. Pass arguments in declaration order and comment the call site; the algorithm also sanity-checks the
+distance unit (section 9), but the call site is where the bug must be fixed.
+
 ## 9. Route length and preview limits
 
 Tracks are interpolated offline from the selected route: neighbouring coordinates are densified to the target
@@ -143,9 +150,13 @@ Before entering track generation the **unit (dimensionality) of the target dista
 non-finite values) and report the reason in the log, for example:
 
 ```text
-目标距离参数异常: 当前值 1791910592.872km（应为 1-5km），请重新设置目标距离后重试
+内部错误: 目标距离参数异常（原始值 1791910592.872），应为 1-5km；请重新设置目标距离后重试
 ```
 
-That message means the value reaching the algorithm is not on a kilometre scale (for example a timestamp-scale
-number written into the configuration). It no longer crashes; the "当前值" in the log is the value actually
-read, which points at the layer that wrote it.
+> Preview used to fail consistently with a "target distance of about 1791910592.87 km". The real cause was an
+> argument-order mistake in `apps/harmonyos/entry/src/main/ets/viewmodel/MainViewModel.ets`: `Date.now()` and
+> the target distance were passed in the wrong order (a millisecond timestamp arrived as metres). It is now
+> fixed to `(targetDistanceM, startTimeMs)`, matching Android `MainViewModel.kt:362-366`.
+>
+> That check and the `MAX_EXPANSION_POINTS` cap from section 9 are both **safety nets**: they never trigger
+> with a valid configuration and only downgrade a future unit/order mistake from a crash to a log error.
