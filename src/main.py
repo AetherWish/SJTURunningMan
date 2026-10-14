@@ -1,7 +1,7 @@
 import time
 import datetime
 import random
-from src.api_client import get_authorization_token_and_rules, upload_running_data
+from src.api_client import get_authorization_token_and_rules, upload_running_data, describe_result
 from src.data_generator import generate_running_data_payload
 from src.route_preview import build_route_preview, update_preview_status
 from utils.auxiliary_util import log_output, SportsUploaderError
@@ -146,7 +146,7 @@ def run_sports_upload(
                     success_count += 1
                 else:
                     # 出现任何非成功情况均记录为失败但继续下一条
-                    log_output(f"第{idx}/{total_runs}条上传未成功，响应: {response}", "warning", log_cb)
+                    log_output(f"第{idx}/{total_runs}条上传未成功（{describe_result(response)}）", "warning", log_cb)
                     _emit_route_preview(route_preview_cb, update_preview_status(current_preview, "上传未成功"))
                     fail_count += 1
 

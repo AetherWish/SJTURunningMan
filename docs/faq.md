@@ -87,6 +87,47 @@ Cookie 等同于登录凭证，**不要分享给任何人**，也不要贴进 is
 
 ---
 
+## 验证下载的安装包
+
+从 Releases 下载之后，可以核对两件事。
+
+### 1. 完整性 —— 文件在传输中没被改动
+
+Release 正文里有每个产物的 SHA256，也可以把 `SHA256SUMS.txt` 一起下下来核对：
+
+```bash
+# macOS / Linux：与 SHA256SUMS.txt 放在同一目录
+sha256sum -c SHA256SUMS.txt
+```
+
+```powershell
+# Windows PowerShell
+Get-FileHash .\SJTURunningMan_<版本>_windows.exe -Algorithm SHA256
+```
+
+两边的值一致即为完整。
+
+### 2. 构建来源 —— 是 CI 构建的，不是从某台本机传的
+
+每个产物都带一份**来源证明**，由 GitHub OIDC 签发，绑定具体的提交与工作流运行：
+
+```bash
+# 需要 gh CLI 2.49 及以上：https://cli.github.com/
+gh attestation verify SJTURunningMan_<版本>_windows.exe \
+  --repo JackyTJie/SJTURunningMan_Advanced_Edition
+```
+
+通过时会打印签名证书与工作流信息。**这份证明在本机无法伪造** —— 它能证明这个文件是 GitHub Actions 按 `release.yml` 在对应提交上构建出来的。
+
+> 说明：来源证明只能证明「怎么构建的」，不能证明「软件可信」—— 能触发该工作流的人同样能签出有效证明。安卓 APK 除来源证明外还有一层**自签名**，用于保证同一作者的版本可以覆盖升级，两者是不同层面的保证。
+
+### 提示文件损坏 / 打不开
+
+先按上面第 1 步核对 SHA256：
+
+- **对得上** —— 文件是完整的，问题多半是系统拦截（Windows SmartScreen、macOS Gatekeeper，见下方对应条目）；
+- **对不上** —— 下载过程中损坏了，重新下载即可。
+
 ## 还没解决？
 
 - 先搜 [Issues](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/issues) 有没有同样的问题；

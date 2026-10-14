@@ -3,6 +3,31 @@ import json
 from urllib.parse import quote
 from utils.auxiliary_util import log_output, SportsUploaderError
 
+
+def _safe_response_hint(response):
+    """把响应压成一条**不含正文**的诊断信息。
+
+    刻意不打印响应正文：认证接口的响应体里带 data.uid，而 uid 就是后续上传
+    用的 token（见 get_authorization_token_and_rules）。日志会显示在界面的
+    日志区，用户截图或贴进 issue 时会把凭证一起带出去。
+    """
+    if response is None:
+        return "无响应"
+    content_type = response.headers.get("Content-Type", "未知类型")
+    return f"状态码 {response.status_code}，Content-Type: {content_type}"
+
+
+def describe_result(payload):
+    """从接口返回的 JSON 里摘出 code 与 message，用于日志。
+
+    只取这两个字段，**不取 data** —— 认证响应的 data.uid 就是上传用的 token。
+    """
+    if not isinstance(payload, dict):
+        return f"非 JSON 响应（{type(payload).__name__}）"
+    code = payload.get('code')
+    msg = payload.get('message') or payload.get('msg') or ''
+    return f"code={code}" + (f"，{msg}" if msg else "")
+
 def make_request(method, url, headers, params=None, data=None, log_cb=None, stop_check_cb=None, session=None):
     """HTTP请求封装"""
     try:
@@ -37,11 +62,7 @@ def make_request(method, url, headers, params=None, data=None, log_cb=None, stop
     except requests.exceptions.HTTPError as e:
         log_output(f"HTTP错误: {e}", "error", log_cb)
         if response is not None: # pyright: ignore[reportPossiblyUnboundVariable]
-            log_output(f"状态码: {response.status_code}", "error", log_cb) # pyright: ignore[reportPossiblyUnboundVariable]
-            try:
-                log_output(f"响应: {json.dumps(response.json(), indent=2)}", "error", log_cb) # type: ignore
-            except json.JSONDecodeError:
-                log_output(f"响应: {response.text}", "error", log_cb) # type: ignore
+            log_output(_safe_response_hint(response), "error", log_cb) # pyright: ignore[reportPossiblyUnboundVariable]
         raise SportsUploaderError(f"HTTP错误: {e}")
     except requests.exceptions.ConnectionError as e:
         log_output(f"连接失败: {e}", "error", log_cb)
@@ -53,7 +74,7 @@ def make_request(method, url, headers, params=None, data=None, log_cb=None, stop
         log_output(f"请求异常: {e}", "error", log_cb)
         raise SportsUploaderError(f"请求异常: {e}")
     except json.JSONDecodeError:
-        log_output(f"JSON解析失败: {response.text if response else 'N/A'}", "error", log_cb) # type: ignore
+        log_output(f"JSON解析失败：{_safe_response_hint(response)}", "error", log_cb)
         raise SportsUploaderError(f"JSON解析失败") # type: ignore
 
 
@@ -89,7 +110,7 @@ def get_authorization_token_and_rules(config, log_cb=None, stop_check_cb=None):
     if uid_response_data.get('code') == 0 and 'uid' in uid_response_data.get('data', {}):
         auth_token = uid_response_data['data']['uid']
     else:
-        raise SportsUploaderError(f"获取认证失败: {uid_response_data}")
+        raise SportsUploaderError(f"获取认证失败：{describe_result(uid_response_data)}")
 
     if stop_check_cb and stop_check_cb():
         raise SportsUploaderError("任务已停止。")

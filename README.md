@@ -19,7 +19,16 @@
   </p>
 </div>
 
-[![Star History Chart](https://app.repohistory.com/api/svg?repo=JackyTJie/SJTURunningMan_Advanced_Edition&type=Date&background=0D1117&color=62C3F8)](https://app.repohistory.com/star-history)
+<a href="https://app.repohistory.com/star-history">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+      srcset="https://app.repohistory.com/api/svg?repo=JackyTJie/SJTURunningMan_Advanced_Edition&type=Date&background=0D1117&color=62C3F8" />
+    <source media="(prefers-color-scheme: light)"
+      srcset="https://app.repohistory.com/api/svg?repo=JackyTJie/SJTURunningMan_Advanced_Edition&type=Date&background=FFFFFF&color=1F6FEB" />
+    <img alt="Star History Chart"
+      src="https://app.repohistory.com/api/svg?repo=JackyTJie/SJTURunningMan_Advanced_Edition&type=Date&background=0D1117&color=62C3F8" />
+  </picture>
+</a>
 
 ## 简介
 
@@ -27,7 +36,11 @@
 
 电脑版提供跑步次数、时间、距离和路线等参数配置，便于进行流程研究、规则测试和结果复核。程序默认以昨日作为结束日期，向前生成指定次数的跑步记录（默认 1 次），每次跑步 4 km，时间为 `08:00:00`。
 
-<img src="assets/Sample.png" alt="Windows 主界面预览" style="zoom: 33%;" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/Sample_Dark.webp" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/Sample_Bright.webp" />
+  <img alt="Windows 主界面预览" src="assets/Sample_Bright.webp" />
+</picture>
 
 ## 平台与文档
 
@@ -36,6 +49,7 @@
 | 平台 | 版本 | 安装方式 | 文档 |
 | --- | --- | --- | --- |
 | **电脑版**（Windows / macOS / Linux） | `v4.5.0` | 下载 exe / dmg / deb 直接运行 | [docs/desktop.md](docs/desktop.md) |
+| **macOS 安装** | `v4.5.0` | 需处理首次打开的 Gatekeeper 拦截 | [docs/macos.md](docs/macos.md) |
 | **安卓** | `4.5.0` | 下载 APK 安装 | [docs/android.md](docs/android.md) |
 | **iOS** | `4.5.0` | 用 Xcode 自行编译安装 | [docs/ios.md](docs/ios.md) |
 | **鸿蒙 NEXT** | `4.2.0` | HAP + 调试证书安装 | [docs/harmonyos.md](docs/harmonyos.md) |
@@ -55,7 +69,11 @@
 
 ## 下载
 
-到 [Releases](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/releases) 获取各平台产物。iOS 无预编译包，需自行编译（见 [docs/ios.md](docs/ios.md)）。
+到 [Releases](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/releases) 获取各平台产物：
+
+- **Windows / macOS / Linux / 安卓** —— 提供预编译包，下载即用；
+- **iOS** —— 不提供预编译包，需自行用 Xcode 编译，见 [docs/ios.md](docs/ios.md)；
+- **鸿蒙 NEXT** —— 不提供预编译包，需自行用 DevEco Studio 编译并签名，见 [docs/harmonyos.md](docs/harmonyos.md)。
 
 ## 文档导航
 

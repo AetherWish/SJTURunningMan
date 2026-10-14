@@ -1,0 +1,60 @@
+name: 安卓构建与测试
+
+# 只在 apps/android/ 下的文件变动时运行。
+# 电脑版（Python）、文档、iOS、鸿蒙的改动不会触发这个工作流 —— 见同目录 ci-python.yml。
+
+on:
+  pull_request:
+    paths:
+      - 'apps/android/**'
+      - '.github/workflows/ci-android.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'apps/android/**'
+      - '.github/workflows/ci-android.yml'
+
+concurrency:
+  group: ci-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: 安卓构建与测试
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 安装 Android SDK 组件
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-34" "build-tools;34.0.0" > /dev/null
+
+      - name: 构建
+        # - 单元测试
+        # - assembleDebugAndroidTest：它才会拉取并编译 androidTest 依赖
+        #   （androidx.test.ext:junit、espresso-core 等）。只跑 testDebugUnitTest
+        #   的话，androidTest 依赖出问题在 CI 上完全看不出来 —— 实际上就有一组
+        #   版本升级能通过单元测试、却在编译 androidTest 时才报依赖冲突。
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest assembleDebugAndroidTest \
+            -Dorg.gradle.java.home="$JAVA_HOME"
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-report
+          path: apps/android/app/build/reports/tests/
+          if-no-files-found: ignore

@@ -1,20 +1,40 @@
 name: Release
 
-# 推 v* tag 触发；也可手动指定已有 tag 重跑。
-# 产物：Windows exe / macOS universal2 dmg / Linux deb，汇合成 draft release，人工点发布。
+# 推 tag 触发，`4.5.0` 与 `v4.5.0` 两种写法都认；也可手动指定已有 tag 重跑。
+#
+# 正确顺序：
+#   推 tag  ->  本工作流构建  ->  生成 draft release 并挂上 5 个产物
+#          ->  人工审核  ->  点发布
+#
+# ⚠️ 不要反过来先手动建好 release 再推 tag：action-gh-release 遇到已存在的
+#    release 会去更新它，而下面的 draft: true 会把已发布的 release 打回草稿。
+#
+# 产物五类 + 一份校验文件：
+#   SJTURunningMan_<ver>_windows.exe          Windows
+#   SJTURunningMan_<ver>_macOS.dmg            macOS（universal2）
+#   SJTURunningMan_<ver>_linux_amd64.deb      Linux x86_64
+#   SJTURunningMan_<ver>_linux_arm64.deb      Linux aarch64
+#   SJTURunningMan_<ver>_android.apk          安卓（自签名，可覆盖升级）
+#   SHA256SUMS.txt                            以上全部的 SHA256
+#
+# 每个产物都由 actions/attest-build-provenance 生成来源证明：证书来自 GitHub
+# OIDC，绑定本次运行与提交，本机无法伪造。用户可用 gh attestation verify 校验。
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]*'   # 4.5.0 —— 本仓库历史上一直是这种写法
+      - 'v*'       # v4.5.0 —— 一并兼容
   workflow_dispatch:
     inputs:
       tag:
-        description: '要构建的已有 tag（如 v4.5.0）'
+        description: '要构建的已有 tag（如 4.5.0 或 v4.5.0）'
         required: true
         type: string
 
+# 全局默认只读；需要写权限的作业各自提升，见各 job 下的 permissions。
+# 这样 id-token / attestations 这类敏感权限只落在真正需要它们的构建作业上。
 permissions:
-  contents: write
+  contents: read
 
 env:
   PYTHON_VERSION: '3.14.6'
@@ -38,11 +58,15 @@ jobs:
   build-windows:
     needs: meta
     runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write        # 换 OIDC token，用于签署来源证明
+      attestations: write    # 存储来源证明
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.tag }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -60,16 +84,26 @@ jobs:
       - name: Rename artifact
         shell: pwsh
         run: Copy-Item dist/SJTURunningMan.exe ("SJTURunningMan_{0}_windows.exe" -f '${{ needs.meta.outputs.version }}')
-      - uses: actions/upload-artifact@v4
+      - name: 生成来源证明
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: SJTURunningMan_*_windows.exe
+      - uses: actions/upload-artifact@v7
         with:
           name: win
           path: SJTURunningMan_*_windows.exe
+          # 打包步骤静默失败、产物没生成时直接失败，不要发一个缺平台的 release
+          if-no-files-found: error
 
   build-macos:
     needs: meta
     runs-on: macos-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.tag }}
       # 关键：python.org 官方 pkg 是 universal2，PySide6 wheel 也是 universal2，
@@ -99,19 +133,33 @@ jobs:
           hdiutil create -volname "SJTURunningMan ${VERSION}" \
             -srcfolder dist/SJTURunningMan.app -ov -format UDZO \
             "SJTURunningMan_${VERSION}_macOS.dmg"
-      - uses: actions/upload-artifact@v4
+      - name: 生成来源证明
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: SJTURunningMan_*_macOS.dmg
+      - uses: actions/upload-artifact@v7
         with:
           name: mac
           path: SJTURunningMan_*_macOS.dmg
+          if-no-files-found: error
 
-  build-linux:
+  # ── Linux 两个架构各构建一次 ─────────────────────────────────────────────
+  # 必须是原生 arm64 runner：PyInstaller 不能交叉编译，
+  # 而 PySide6 的 aarch64 wheel 是 manylinux_2_39（要求 glibc >= 2.39），
+  # 所以只能跑 ubuntu-24.04 —— ubuntu-22.04 的 glibc 2.35 装不上。
+  # amd64 那条也显式钉住 24.04，避免 ubuntu-latest 将来漂移改变 glibc 基线。
+  build-linux-amd64:
     needs: meta
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.tag }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -143,31 +191,396 @@ jobs:
           Terminal=false
           Categories=Education;
           EOF
-          fpm -s dir -t deb -n sjturunningman -v "$VERSION" \
+          fpm -s dir -t deb -n sjturunningman -v "$VERSION" -a amd64 \
             --maintainer 'Jacky Tang <tang.jie@live.com>' \
             --url 'https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition' \
             --description 'SJTU 校园轻松跑' \
             --depends libgl1 --depends libegl1 --depends libxkbcommon0 \
             --depends libdbus-1-3 --depends libfontconfig1 \
-            -p "SJTURunningMan_${VERSION}_linux.deb" \
+            -p "SJTURunningMan_${VERSION}_linux_amd64.deb" \
             -C pkgroot .
-      - uses: actions/upload-artifact@v4
+      - name: 生成来源证明
+        uses: actions/attest-build-provenance@v4
         with:
-          name: linux
-          path: SJTURunningMan_*_linux.deb
+          subject-path: SJTURunningMan_*_linux_amd64.deb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-amd64
+          path: SJTURunningMan_*_linux_amd64.deb
+          if-no-files-found: error
+
+  build-linux-arm64:
+    needs: meta
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Write version into config
+        run: printf 'global_version = "v%s"\n' '${{ needs.meta.outputs.version }}' > src/config.py
+      - name: Install deps
+        run: |
+          python -m pip install -r requirements.txt pyinstaller
+      - name: Build binary
+        env:
+          APP_VERSION: ${{ needs.meta.outputs.version }}
+        run: python -m PyInstaller --clean --noconfirm main.spec
+      - name: Package deb
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+          mkdir -p pkgroot/usr/bin pkgroot/usr/share/applications pkgroot/usr/share/pixmaps
+          cp dist/SJTURunningMan pkgroot/usr/bin/sjturunningman
+          cp assets/SJTURM.png pkgroot/usr/share/pixmaps/sjturunningman.png
+          cat > pkgroot/usr/share/applications/sjturunningman.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=SJTU 校园轻松跑
+          Exec=sjturunningman
+          Icon=sjturunningman
+          Terminal=false
+          Categories=Education;
+          EOF
+          fpm -s dir -t deb -n sjturunningman -v "$VERSION" -a arm64 \
+            --maintainer 'Jacky Tang <tang.jie@live.com>' \
+            --url 'https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition' \
+            --description 'SJTU 校园轻松跑' \
+            --depends libgl1 --depends libegl1 --depends libxkbcommon0 \
+            --depends libdbus-1-3 --depends libfontconfig1 \
+            -p "SJTURunningMan_${VERSION}_linux_arm64.deb" \
+            -C pkgroot .
+      - name: 生成来源证明
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: SJTURunningMan_*_linux_arm64.deb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-arm64
+          path: SJTURunningMan_*_linux_arm64.deb
+          if-no-files-found: error
+
+  # ── 安卓：自签名 universal APK ───────────────────────────────────────────
+  # 签名材料放在仓库 Secrets 里（见 CONTRIBUTING / release 说明）：
+  #   ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD
+  #   ANDROID_KEY_ALIAS        / ANDROID_KEY_PASSWORD
+  # 缺 secret 时这个作业会直接失败 —— 不退化成未签名包，
+  # 因为未签名 APK 用户根本装不上，发出去比构建失败更糟。
+  build-android:
+    needs: meta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 安装 Android SDK 组件
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-34" "build-tools;34.0.0" > /dev/null
+
+      - name: 写入签名用 keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::缺少 ANDROID_KEYSTORE_BASE64，无法产出可安装的 APK。"
+            echo "::error::请在 Settings → Secrets and variables → Actions 配置四个安卓签名 secret："
+            echo "::error::ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: 由 tag 推导 versionName / versionCode
+        id: appver
+        env:
+          V: ${{ needs.meta.outputs.version }}
+        run: |
+          # 先把预发布后缀去掉再算 versionCode：tag 可能是 4.5.0-rc.1 / 4.4.2-dryrun
+          # 这类写法，直接按 "." 拆会得到 "0-rc" 这种非数字，$(( )) 会报语法错误中断。
+          BASE="${V%%-*}"      # 4.5.0-rc.1 -> 4.5.0
+          BASE="${BASE%%+*}"   # 顺带去掉 build metadata
+          IFS=. read -r MA MI PA <<< "$BASE"
+          # 再各自剔掉非数字字符，防止 4.4.2.1 这种多段写法
+          MA="${MA//[!0-9]/}"; MI="${MI//[!0-9]/}"; PA="${PA//[!0-9]/}"
+
+          NAME="$V"            # versionName 保留完整 tag，预发布信息有意义
+          CODE=$(( ${MA:-0} * 10000 + ${MI:-0} * 100 + ${PA:-0} ))
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "versionName=$NAME  versionCode=$CODE"
+
+      - name: 构建签名 APK
+        env:
+          KS_FILE: ${{ runner.temp }}/release.jks
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon assembleRelease \
+            -PAPP_VERSION_NAME="${{ steps.appver.outputs.name }}" \
+            -PAPP_VERSION_CODE="${{ steps.appver.outputs.code }}" \
+            -PRELEASE_KEYSTORE_FILE="$KS_FILE" \
+            -PRELEASE_KEYSTORE_PASSWORD="$KS_PASS" \
+            -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
+            -PRELEASE_KEY_PASSWORD="$KEY_PASS" \
+            -Dorg.gradle.java.home="$JAVA_HOME"
+
+      - name: 校验 APK 已签名且版本号与 tag 一致
+        # 两道校验，防的是「配置没生效但构建照样成功」这类静默失败：
+        #   1. 真的签了名 —— 必须用 apksigner。minSdk 26 高于 v1(JAR) 签名
+        #      的适用范围，AGP 只出 V2/V3 签名，META-INF 下没有 .RSA 文件，
+        #      拿 unzip 找 META-INF 的写法会误判为未签名。
+        #   2. APK 里的 versionName 就是 tag 版本 —— 防止 -P 注入失效后
+        #      发出去的包版本号对不上。
+        env:
+          EXPECTED_NAME: ${{ steps.appver.outputs.name }}
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          BT="$ANDROID_HOME/build-tools/34.0.0"
+          test -f "$APK" || { echo "::error::没有产出 $APK"; exit 1; }
+
+          "$BT/apksigner" verify --print-certs "$APK" > /dev/null \
+            || { echo "::error::APK 未签名"; exit 1; }
+
+          ACTUAL=$("$BT/aapt2" dump badging "$APK" \
+            | sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p")
+          if [ "$ACTUAL" != "$EXPECTED_NAME" ]; then
+            echo "::error::APK versionName=$ACTUAL，与 tag 的 $EXPECTED_NAME 不一致"
+            exit 1
+          fi
+          echo "签名与版本校验通过：versionName=$ACTUAL"
+
+      - name: 重命名
+        env:
+          V: ${{ needs.meta.outputs.version }}
+        run: cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/SJTURunningMan_${V}_android.apk"
+
+      - name: 生成来源证明
+        # 注意：uses 步骤的工作目录是 GITHUB_WORKSPACE，不受上面 defaults.run 影响
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: SJTURunningMan_*_android.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: SJTURunningMan_*_android.apk
+          if-no-files-found: error
 
   release:
-    needs: [meta, build-windows, build-macos, build-linux]
+    needs: [meta, build-windows, build-macos, build-linux-amd64, build-linux-arm64, build-android]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write          # 只有这里需要写权限（创建 release 与上传附件）
     steps:
-      - uses: actions/download-artifact@v4
+      # checkout 必须放在 download-artifact 之前 —— actions/checkout 默认会
+      # 清理工作区（git clean -ffdx），后跑会把刚下载的 artifacts/ 一起删掉，
+      # 后面所有引用 artifacts/ 的步骤都会报 "No such file or directory"。
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+          # 只需要读两个版本号文件，不用全历史
+          fetch-depth: 1
+
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+
+      - name: 取发布日期与 What's Changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          # 发布日期取 tag 指向提交的时间，比「工作流跑的时间」更贴近语义
+          gh api "repos/$REPO/commits/$TAG" --jq '.commit.committer.date[0:10]' \
+            > RELEASE_DATE.txt 2>/dev/null || true
+          [ -s RELEASE_DATE.txt ] || date -u +%F > RELEASE_DATE.txt
+
+          # 用官方接口生成提交/PR 列表，比 generate_release_notes 更可控 ——
+          # 它的输出会被塞进正文的 <details> 里，而不是追加到最末尾
+          gh api "repos/$REPO/releases/generate-notes" --method POST \
+            -f tag_name="$TAG" --jq '.body' > WHATS_CHANGED.md 2>/dev/null || true
+          [ -s WHATS_CHANGED.md ] \
+            || echo "_（本次未能自动生成，请手动补上变更列表）_" > WHATS_CHANGED.md
+
+          echo "日期: $(cat RELEASE_DATE.txt)"
+
+      - name: 生成 SHA256 校验文件
+        working-directory: artifacts
+        # 先删掉同名旧文件：CI 上是全新 runner 不会存在，但万一重跑同一目录，
+        # sha256sum * 会把自己的输出也算进去，得到一份自指的校验文件
+        run: |
+          rm -f SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
+
+      - name: 生成 Release 正文
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import os, re, pathlib
+
+          repo = os.environ["REPO"]
+          tag = os.environ["TAG"]
+          version = os.environ["VERSION"]
+          root = pathlib.Path("artifacts")
+
+          def read(p, pattern, default="?"):
+              """从文件里正则抠一个值；读不到就用默认值，不要让整步失败。"""
+              try:
+                  m = re.search(pattern, pathlib.Path(p).read_text(encoding="utf-8"))
+                  return m.group(1) if m else default
+              except OSError:
+                  return default
+
+          # 移动端版本号与发布版本各自独立，从各自工程文件里读
+          # 安卓的版本号由 -PAPP_VERSION_NAME 注入，工程文件里保留的是这一行的
+          # 兜底值。不能直接找 `versionName = "x"` —— 那里现在写的是变量名。
+          android_ver = read("apps/android/app/build.gradle.kts",
+                             r'APP_VERSION_NAME"\)\.orNull\s*\?:\s*"([^"]+)"')
+          ios_ver = read("apps/ios/SJTURunningMan.xcodeproj/project.pbxproj",
+                         r"MARKETING_VERSION\s*=\s*([0-9][0-9.]*)\s*;")
+          harmony_ver = read("apps/harmonyos/AppScope/app.json5",  r'"versionName"\s*:\s*"([^"]+)"')
+          release_date = pathlib.Path("RELEASE_DATE.txt").read_text().strip()
+
+          # GitHub 生成的正文自带一个 "## What's Changed" 标题，而外层 <summary>
+          # 已经是这个标题了，把里层去掉，避免折叠块展开后出现两行一样的标题
+          whats_changed = pathlib.Path("WHATS_CHANGED.md").read_text().strip()
+          whats_changed = re.sub(r"^#{1,3}\s*What's Changed\s*\n+", "", whats_changed).strip()
+
+          # 平台标签按顺序匹配；没匹配上的归到「其他」。
+          # Linux 两行保留架构后缀 —— 同一平台两个包，不区分会看不出下哪个。
+          # Windows 与 macOS 每平台只有一个产物（macOS 是 universal2），无需后缀。
+          LABELS = [
+              ("_windows.exe",     "Windows"),
+              ("_macOS.dmg",       "macOS"),
+              ("_linux_amd64.deb", "Linux (x86_64)"),
+              ("_linux_arm64.deb", "Linux (aarch64)"),
+              ("_android.apk",     "Android"),
+          ]
+
+          sums = {}
+          for line in (root / "SHA256SUMS.txt").read_text().splitlines():
+              if line.strip():
+                  digest, name = line.split(None, 1)
+                  sums[name.strip()] = digest
+
+          def url(name):
+              return f"https://github.com/{repo}/releases/download/{tag}/{name}"
+
+          rows, used = [], set()
+          for suffix, label in LABELS:
+              for name in sorted(sums):
+                  if name in used or not name.endswith(suffix):
+                      continue
+                  used.add(name)
+                  rows.append((label, name, sums[name]))
+          for name in sorted(sums):
+              # 兜底再挡一次：校验文件本身不该出现在下载表里
+              if name not in used and name != "SHA256SUMS.txt":
+                  rows.append(("其他", name, sums[name]))
+
+          lines = [
+              f"# SJTURunningMan {version} 发布说明",
+              "",
+              f"**发布时间**：{release_date}",
+              "**适用平台**：",
+              f"- Windows / macOS / Linux 图形界面：`v{version}`",
+              f"- Android：`{android_ver}`",
+              f"- iOS：`{ios_ver}`",
+              f"- HarmonyOS NEXT：`{harmony_ver}`",
+              "",
+              "> iOS 与 HarmonyOS NEXT 的版本号独立于本次发布，且**不提供预编译包**，"
+              "需自行编译。见 "
+              f"[docs/ios.md](https://github.com/{repo}/blob/master/docs/ios.md) 与 "
+              f"[docs/harmonyos.md](https://github.com/{repo}/blob/master/docs/harmonyos.md)。",
+              "",
+              "<details>",
+              "<summary>What's Changed</summary>",
+              "",
+              whats_changed,
+              "",
+              "</details>",
+              "",
+              "---",
+              "",
+              "## 新功能",
+              "",
+              "<!-- 逐条写：做了什么、解决什么问题 -->",
+              "",
+              "## 优化",
+              "",
+              "<!-- 同上 -->",
+              "",
+              "## 修复",
+              "",
+              "<!-- 同上 -->",
+              "",
+              "## 致谢",
+              "",
+              "<!-- @某人：做了什么 -->",
+              "",
+              "---",
+              "",
+              "## 下载",
+              "",
+              "| 平台 | 文件 | SHA256 |",
+              "| --- | --- | --- |",
+          ]
+          for label, name, digest in rows:
+              lines.append(f"| {label} | [{name}]({url(name)}) | `{digest}` |")
+
+          lines += [
+              "",
+              f"校验值也可以直接下载 [SHA256SUMS.txt]({url('SHA256SUMS.txt')}) 后本地核对。",
+              "",
+              f"核对完整性与构建来源的完整说明见 "
+              f"[docs/faq.md「验证下载的安装包」](https://github.com/{repo}/blob/master/docs/faq.md"
+              f"#验证下载的安装包)。",
+              "",
+          ]
+          pathlib.Path("RELEASE_BODY.md").write_text("\n".join(lines), encoding="utf-8")
+          print("\n".join(lines))
+          PY
+
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
           name: ${{ needs.meta.outputs.version }}
-          draft: true                 # 人工确认后发布
-          generate_release_notes: true
+          # 先生成草稿，人工确认产物齐全后再点发布。
+          # 注意：对已发布的 release 重跑会把 draft 设回 true，顺序见文件顶部注释。
+          draft: true
+          # 正文整份来自 body_path，结构见上面的「生成 Release 正文」步骤。
+          # 这里必须关掉 generate_release_notes —— 否则 GitHub 会在正文末尾
+          # 再追加一份 What's Changed，和 <details> 里那份重复。
+          # append_body 默认 false：重跑会覆盖旧正文，不会把内容越堆越多。
+          body_path: RELEASE_BODY.md
+          generate_release_notes: false
           files: artifacts/*

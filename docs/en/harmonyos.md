@@ -2,7 +2,9 @@
 
 Version **`4.5.0`**, bundle name `com.sjtu.runner` (`apps/harmonyos/AppScope/app.json5`). Project path: `apps/harmonyos/`.
 
-> Features are aligned with the Android build: parameter ranges, task flow, route preview, status statistics, run logs and the update checker are all re-implemented natively in ArkTS/ArkUI (HDS components + immersive material) with no shared code. Only the install procedure, system permissions and login entry point differ.
+> **Anything not stated here matches the Android build** — parameter ranges, upload flow and logging are aligned. Only the install procedure and login entry point differ.
+
+The HarmonyOS build was contributed by [@AetherWish](https://github.com/AetherWish); the project was migrated from the Android native project (see `apps/harmonyos/oh-package.json5`).
 
 ![HarmonyOS main screen](../images/harmonyos-main.webp)
 
@@ -22,7 +24,7 @@ Version **`4.5.0`**, bundle name `com.sjtu.runner` (`apps/harmonyos/AppScope/app
 
 > ⚠️ **Complete Huawei developer verification first** to extend the debug certificate validity. Without it the debug certificate expires quickly and you must reinstall.
 
-1. Download the HAP from [Releases](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/releases).
+1. **Build the HAP yourself first** — this project **does not ship a prebuilt HarmonyOS package** in Releases. Build and sign it with DevEco Studio, see [build.md](./build.md#harmonyos).
 2. On the phone: **Settings → About → tap "Software version" 7 times**, restart, and developer options are enabled.
 3. Go to **Settings → System → Developer options → Wireless debugging**, enable it and note the IP and port.
 4. Connect the PC and phone to the same network, download [小白调试助手](https://github.com/likuai2010/auto-installer) and run it, following its on-screen instructions.
@@ -85,6 +87,7 @@ HarmonyOS **does not read location or phone state**: tracks are interpolated off
 
 | Item | Android | HarmonyOS |
 | --- | --- | --- |
+| How to get it | Download the APK from Releases | **No prebuilt package** — build and sign it yourself with DevEco Studio |
 | Install | APK | HAP + debug certificate (limited validity) |
 | One-tap login | Yes | No, JAccount web login only |
 | Permissions | INTERNET / ACCESS_NETWORK_STATE / READ_PHONE_STATE | INTERNET / GET_NETWORK_INFO |

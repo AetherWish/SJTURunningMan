@@ -2,7 +2,9 @@
 
 版本 **`4.5.0`**，Bundle Name `com.sjtu.runner`（`apps/harmonyos/AppScope/app.json5`）。工程路径 `apps/harmonyos/`。
 
-> 功能与安卓端对齐：参数范围、任务流程、路线预览、状态统计、运行日志、检查更新均由鸿蒙原生 ArkTS/ArkUI 独立实现（HDS 组件 + 沉浸光感），不做代码共享；差异仅在安装方式、系统权限与登录入口。
+> **未特别说明的内容与安卓端一致** —— 参数范围、上传流程、日志行为都对齐安卓版；差异仅在安装方式与登录入口。
+
+鸿蒙版由 [@AetherWish](https://github.com/AetherWish) 贡献，工程由 Android 原生工程迁移而来（见 `apps/harmonyos/oh-package.json5`）。
 
 ![鸿蒙主界面](./images/harmonyos-main.webp)
 
@@ -22,7 +24,7 @@
 
 > ⚠️ **强烈建议提前完成华为账号的开发者认证**，以延长调试证书有效期。未认证时调试证书有效期很短，装完没多久就会失效需要重装。
 
-1. 到 [Releases](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/releases) 下载 HAP 文件；
+1. **先自行编译出 HAP** —— 本项目**不在 Releases 提供鸿蒙预编译包**，需要用 DevEco Studio 构建并签名，见 [build.md](./build.md#鸿蒙)；
 2. 手机上：**设置 → 关于本机 → 连点「软件版本」7 次**，重启后启用开发者选项；
 3. 进入 **设置 → 系统 → 开发者选项 → 无线调试**，打开并记录显示的 IP 与端口；
 4. PC 与手机连同一网络，下载 [小白调试助手](https://github.com/likuai2010/auto-installer) 并运行，按软件内指引配置安装。
@@ -85,6 +87,7 @@
 
 | 项 | 安卓 | 鸿蒙 |
 | --- | --- | --- |
+| 获取方式 | Releases 直接下载 APK | **不提供预编译包**，需自行用 DevEco Studio 编译并签名 |
 | 安装方式 | 直接装 APK | 需 HAP + 调试证书（有效期有限） |
 | 快捷登录 | 支持交我办 | 不支持，仅 JAccount 网页登录 |
 | 权限 | INTERNET / ACCESS_NETWORK_STATE / READ_PHONE_STATE | INTERNET / GET_NETWORK_INFO |

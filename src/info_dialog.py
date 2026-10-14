@@ -1,10 +1,10 @@
 import random
 import math
 import os
-import sys
 from utils.auxiliary_util import get_base_path
 
 import src.config as config
+import src.theme as theme
 from src.update_checker import UpdateCheckTask
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
@@ -36,21 +36,14 @@ def prune_update_tasks():
     except Exception:
         pass
 
-# 界面字体族：macOS 上没有微软雅黑，优先用系统中文字体，避免 Qt 反复做字体回退
-if sys.platform == "darwin":
-    UI_FONT_FAMILIES_LIST = ["PingFang SC", "Hiragino Sans GB", "Heiti SC",
-                             "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI"]
-else:
-    UI_FONT_FAMILIES_LIST = ["Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI",
-                             "PingFang SC"]
+# 字体族与颜色令牌统一由 src/theme.py 提供（保留旧名字，避免调用点大改）
+from src.theme import UI_FONT_FAMILIES, UI_FONT_FAMILIES_LIST
 
-UI_FONT_FAMILIES = ", ".join(f'"{name}"' for name in UI_FONT_FAMILIES_LIST) + ", sans-serif"
-
-# 状态文字配色：发现新版本 / 已是最新 / 出错
+# 状态文字配色兜底：未显式传主题时按暗色主题处理
 UPDATE_STATUS_COLORS = {
-    "update": "#7cffb2",
-    "ok": "rgba(255, 255, 255, 0.72)",
-    "error": "#ff9c9c",
+    "update": theme.DARK_THEME["status_update"],
+    "ok": theme.DARK_THEME["status_ok"],
+    "error": theme.DARK_THEME["status_error"],
 }
 
 RESOURCES_SUB_DIR = "assets"
@@ -298,13 +291,18 @@ class HelpWidget(QWidget):
     SPRAY_DURATION_FRAMES = 120
     PARTICLES_PER_FRAME_PER_SIDE = 3
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, theme_tokens=None):
         super().__init__(parent)
+        # 主窗口把当前主题传进来；单独使用时按暗色处理
+        self._theme = dict(theme_tokens) if theme_tokens else dict(theme.DARK_THEME)
         self.ui = Ui_HelpWindow()
         self.ui.setupUi(self)
+        self.apply_theme()
 
         self.particles = []
         self.background_pixmap = QPixmap(HELP_BACKGROUND_PATH)
+        # 亮色背景：把同一张背景图换算成纸面淡彩版本，启动时算一次
+        self.light_background = theme.LightBackgroundBrush(self.background_pixmap)
         # 当点击关于窗口的“确定”按钮时，隐藏此窗口
         try:
             self.ui.okButton.clicked.connect(self.on_ok_clicked)
@@ -330,6 +328,20 @@ class HelpWidget(QWidget):
 
         self.animation_timer = QTimer(self)
         self.animation_timer.timeout.connect(self.update_animation)
+
+    def apply_theme(self):
+        """把主窗口的亮暗主题套到关于窗口上（追加覆盖 Ui_HelpWindow 自带样式）。"""
+        try:
+            theme.apply_palette(self, self._theme)
+            self.setStyleSheet(self.styleSheet() + theme.help_stylesheet(self._theme))
+        except Exception:
+            pass
+        self._status_colors = {
+            "update": self._theme["status_update"],
+            "ok": self._theme["status_ok"],
+            "error": self._theme["status_error"],
+        }
+        self.update()
 
     def closeEvent(self, event):
         """处理窗口关闭事件，确保主窗口恢复可关闭状态"""
@@ -378,7 +390,8 @@ class HelpWidget(QWidget):
     def set_update_status(self, text, level=None):
         """更新状态文字，level 取 update/ok/error 决定颜色。"""
         try:
-            color = UPDATE_STATUS_COLORS.get(level, UPDATE_STATUS_COLORS["ok"])
+            colors = getattr(self, "_status_colors", UPDATE_STATUS_COLORS)
+            color = colors.get(level, colors["ok"])
             self.ui.updateStatusLabel.setStyleSheet(
                 f"#updateStatusLabel {{ color: {color}; background-color: transparent; }}"
             )
@@ -547,4 +560,9 @@ class HelpWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.drawPixmap(self.rect(), self.background_pixmap)
+        if self._theme.get("mode") == theme.MODE_LIGHT:
+            theme.draw_light_background(painter, self.rect(), self._theme, self.light_background)
+        elif self.background_pixmap is not None and not self.background_pixmap.isNull():
+            painter.drawPixmap(self.rect(), self.background_pixmap)
+        else:
+            painter.fillRect(self.rect(), theme.qcolor(self._theme["window_solid"]))

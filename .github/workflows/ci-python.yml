@@ -1,19 +1,37 @@
-name: CI
+name: Python 检查
 
-# PR 与 master 推送时运行：Python 语法 / 导入冒烟 + 安卓单元测试。
+# 只在电脑版（Python）相关文件变动时运行。
+# 文档、安卓、iOS、鸿蒙的改动不会触发这个工作流 —— 见同目录 ci-android.yml。
 #
-# 背景：release.yml 只在推 v* tag 或手动触发时运行，因此依赖升级类 PR
-# （Dependabot 每天会开一批）此前没有任何检查信号，只能靠人工判断能不能合。
-# 这个工作流补上那个信号。
+# 背景：release.yml 只在推 v* tag 时运行，PR 上原本没有任何检查。
 
 on:
   pull_request:
+    paths:
+      - 'qtui.py'
+      - 'src/**'
+      - 'utils/**'
+      - 'assets/**'
+      - 'requirements.txt'
+      - 'main.spec'
+      - 'build_windows.ps1'
+      - 'route_planner.html'
+      - '.github/workflows/ci-python.yml'
   push:
     branches: [master]
+    paths:
+      - 'qtui.py'
+      - 'src/**'
+      - 'utils/**'
+      - 'assets/**'
+      - 'requirements.txt'
+      - 'main.spec'
+      - 'build_windows.ps1'
+      - 'route_planner.html'
+      - '.github/workflows/ci-python.yml'
 
-# 同一分支的新推送取消上一次仍在跑的任务
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-python-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,9 +45,9 @@ jobs:
     name: Python 检查
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -73,33 +91,3 @@ jobs:
           # qtui 有 __main__ 守卫，导入不会真正开窗；
           # 这一步能抓到 PySide6 API 变动与 assets/resources_rc 缺失
           python -c "import qtui; print('qtui import OK')"
-
-  android:
-    name: 安卓单元测试
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/android
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: 安装 Android SDK 组件
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-34" "build-tools;34.0.0" > /dev/null
-
-      - name: 单元测试
-        run: ./gradlew --no-daemon testDebugUnitTest -Dorg.gradle.java.home="$JAVA_HOME"
-
-      - name: 上传测试报告
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-test-report
-          path: apps/android/app/build/reports/tests/
-          if-no-files-found: ignore

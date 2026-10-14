@@ -12,8 +12,13 @@
 | `android-route.webp` | 480×1056 | 安卓路线设计页：地图上已连点若干坐标 | 40 KB |
 | `ios-main.webp` | 480×974 | iOS 主界面：参数配置与运行日志 | 21 KB |
 | `harmonyos-main.webp` | 480×1069 | 鸿蒙主界面：账号页与跑步参数页 | 26 KB |
+| `macos-install-dmg.webp` | 1000×652 | macOS：DMG 挂载后拖拽安装到 Applications | 15 KB |
+| `macos-gatekeeper.webp` | 534×580 | macOS：首次打开被 Gatekeeper 拦截的弹窗 | 19 KB |
+| `macos-open-anyway.webp` | 1000×849 | macOS：系统设置 → 隐私与安全性 → 仍要打开 | 41 KB |
 
-全部为 WebP，本目录总计约 223 KB。
+全部为 WebP，本目录总计约 298 KB。
+
+前六张是各平台的**应用界面**截图（手机 480 px / 桌面 1000 px 宽）。后三张是 macOS 的**安装流程**截图，内容是系统弹窗与系统设置界面，按原始比例裁剪，未套用统一宽度。
 
 **尺寸约定**：手机端统一缩到 **480 px 宽**，桌面端 **1000 px 宽**。文档渲染时 GitHub 会把图片压到容器宽度（约 850 px）以内，再大的分辨率只是徒增仓库体积 —— 480 px 下字段名、按钮、日志文字仍然清晰可辨。
 

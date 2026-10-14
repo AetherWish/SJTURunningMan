@@ -26,9 +26,12 @@ For the Windows / macOS / Linux desktop build, currently **`v4.5.0`** (version c
 
 ### macOS
 
-Download `SJTURunningMan-<version>-macOS-universal.dmg`, mount it and drag `SJTURunningMan.app` into Applications. If macOS reports an unverified developer, go to **System Settings → Privacy & Security** and click "Open Anyway".
+1. Download `SJTURunningMan-<version>-macOS-universal.dmg`.
+2. Mount it and drag `SJTURunningMan.app` into Applications.
 
-> The universal build covers both Apple Silicon and Intel.
+The first launch is blocked by Gatekeeper and must be allowed from **System Settings → Privacy & Security** — **full steps with screenshots are in [macos.md](./macos.md)**.
+
+> Requires **macOS 14 or later**; the universal build covers both Apple Silicon and Intel.
 
 ### Linux
 

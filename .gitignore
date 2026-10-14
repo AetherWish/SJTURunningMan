@@ -147,6 +147,8 @@ oh_modules/
 configs/*
 refs/
 /Routes/
+# 界面主题等运行时用户偏好
+ui_settings.json
 
 # =========================
 # Other

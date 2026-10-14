@@ -32,6 +32,7 @@ a = Analysis(
         'src.config',
         'src.route_preview',
         'src.update_checker',
+        'src.theme',
         'utils.auxiliary_util',
         'assets.resources_rc',
     ],

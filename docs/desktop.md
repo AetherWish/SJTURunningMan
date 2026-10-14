@@ -26,9 +26,12 @@
 
 ### macOS
 
-下载 `SJTURunningMan-<版本>-macOS-universal.dmg`，挂载后把 `SJTURunningMan.app` 拖入「应用程序」。首次打开若提示「无法验证开发者」，在 **系统设置 → 隐私与安全性** 中点击「仍要打开」。
+1. 下载 `SJTURunningMan-<版本>-macOS-universal.dmg`；
+2. 挂载后把 `SJTURunningMan.app` 拖入「应用程序」。
 
-> Apple Silicon 与 Intel 都在同一份 universal 包里，无需区分。
+首次打开会被 Gatekeeper 拦截，需要在 **系统设置 → 隐私与安全性** 里放行 —— **完整步骤与截图见 [macos.md](./macos.md)**。
+
+> 要求 **macOS 14 或更高**；Apple Silicon 与 Intel 都在同一份 universal 包里，无需区分。
 
 ### Linux
 

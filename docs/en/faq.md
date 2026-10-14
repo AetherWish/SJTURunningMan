@@ -87,6 +87,47 @@ HarmonyOS does **not** support one-tap login; JAccount web login only. This is a
 
 ---
 
+## Verifying a downloaded artifact
+
+After downloading from Releases you can check two things.
+
+### 1. Integrity — the file was not altered in transit
+
+The release body lists a SHA256 for every artifact, and you can also download `SHA256SUMS.txt` and check against it:
+
+```bash
+# macOS / Linux: place it next to SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt
+```
+
+```powershell
+# Windows PowerShell
+Get-FileHash .\SJTURunningMan_<version>_windows.exe -Algorithm SHA256
+```
+
+Matching values mean the file is intact.
+
+### 2. Build provenance — built by CI, not uploaded from someone's machine
+
+Every artifact carries a **provenance attestation** issued by GitHub OIDC and bound to a specific commit and workflow run:
+
+```bash
+# requires gh CLI 2.49+: https://cli.github.com/
+gh attestation verify SJTURunningMan_<version>_windows.exe \
+  --repo JackyTJie/SJTURunningMan_Advanced_Edition
+```
+
+On success it prints the signing certificate and workflow information. **This attestation cannot be forged locally** — it proves the file was built by GitHub Actions running `release.yml` at that commit.
+
+> Note: provenance only proves *how* something was built, not that the software is trustworthy — anyone able to trigger the workflow can also produce a valid attestation. The Android APK additionally carries a **self-signature** guaranteeing that updates from the same author install over older versions; the two are separate guarantees.
+
+### File reported as damaged / won't open
+
+Check the SHA256 first (step 1 above):
+
+- **Matches** — the file is intact; the problem is almost certainly OS blocking (Windows SmartScreen, macOS Gatekeeper — see the entries below);
+- **Doesn't match** — the download was corrupted; just download it again.
+
 ## Still stuck?
 
 - Search [Issues](https://github.com/JackyTJie/SJTURunningMan_Advanced_Edition/issues) first.
